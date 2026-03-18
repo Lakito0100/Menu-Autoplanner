@@ -17,6 +17,8 @@ else:
 SESSION_FILE = os.path.join(BASE_DIR, "session.json")
 REZEPTE_FILE = os.path.join(BASE_DIR, "Rezepte.xlsx")
 
+_einkaufsliste_state = {"vorhanden": [], "zusaetzlich": []}
+
 df = pd.read_excel(REZEPTE_FILE)
 
 def parse_zutat(z):
@@ -160,33 +162,47 @@ def generate_list():
     return generate_list.einkaufsliste
 
 def zeige_einkaufsliste():
+    global _einkaufsliste_state
     einkaufsliste = generate_list()
 
     win = tk.Toplevel(root)
     win.title("Einkaufsliste")
-    win.geometry("560x660")
+    win.geometry("680x660")
     win.grab_set()
 
     # Treeview + Scrollbar
     frame_tree = ttk.Frame(win)
     frame_tree.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
-    cols = ("Menge", "Einheit", "Zutat")
+    cols = ("Menge", "Einheit", "Zutat", "Status")
     tree = ttk.Treeview(frame_tree, columns=cols, show="headings", height=18)
     tree.heading("Menge", text="Menge")
     tree.heading("Einheit", text="Einheit")
     tree.heading("Zutat", text="Zutat")
-    tree.column("Menge", width=70, anchor="e")
-    tree.column("Einheit", width=80)
-    tree.column("Zutat", width=340)
+    tree.heading("Status", text="Status")
+    tree.column("Menge", width=60, anchor="e")
+    tree.column("Einheit", width=70)
+    tree.column("Zutat", width=300)
+    tree.column("Status", width=110)
+
+    tree.tag_configure("vorhanden", foreground="#999999")
+    tree.tag_configure("zusaetzlich", foreground="#0066cc", background="#eef4fb")
 
     sb = ttk.Scrollbar(frame_tree, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=sb.set)
     tree.pack(side="left", fill="both", expand=True)
     sb.pack(side="left", fill="y")
 
+    # Gespeicherten Zustand anwenden
+    vorhanden_keys = {tuple(x) for x in _einkaufsliste_state.get("vorhanden", [])}
     for _, row in einkaufsliste.iterrows():
-        tree.insert("", "end", values=(row["Menge"], row["Einheit"], row["Zutat"]))
+        key = (row["Zutat"], str(row["Einheit"]))
+        if key in vorhanden_keys:
+            tree.insert("", "end", values=(row["Menge"], row["Einheit"], row["Zutat"], "✓ vorhanden"), tags=("vorhanden",))
+        else:
+            tree.insert("", "end", values=(row["Menge"], row["Einheit"], row["Zutat"], ""))
+    for item in _einkaufsliste_state.get("zusaetzlich", []):
+        tree.insert("", "end", values=(item["menge"], item["einheit"], item["zutat"], "+ zusätzlich"), tags=("zusaetzlich",))
 
     # Manuelle Eingabe
     frame_add = ttk.LabelFrame(win, text="Eintrag hinzufügen")
@@ -208,7 +224,7 @@ def zeige_einkaufsliste():
         zutat = entry_zutat.get().strip()
         if not zutat:
             return
-        tree.insert("", "end", values=(entry_menge.get().strip(), entry_einheit.get().strip(), zutat))
+        tree.insert("", "end", values=(entry_menge.get().strip(), entry_einheit.get().strip(), zutat, "+ zusätzlich"), tags=("zusaetzlich",))
         entry_menge.delete(0, tk.END)
         entry_einheit.delete(0, tk.END)
         entry_zutat.delete(0, tk.END)
@@ -219,14 +235,22 @@ def zeige_einkaufsliste():
     frame_btns = ttk.Frame(win)
     frame_btns.pack(fill="x", padx=10, pady=6)
 
-    def delete_selected():
-        for item in tree.selection():
-            tree.delete(item)
+    def toggle_vorhanden():
+        for iid in tree.selection():
+            tags = tree.item(iid, "tags")
+            vals = tree.item(iid, "values")
+            if "zusaetzlich" in tags:
+                continue
+            if "vorhanden" in tags:
+                tree.item(iid, values=(vals[0], vals[1], vals[2], ""), tags=())
+            else:
+                tree.item(iid, values=(vals[0], vals[1], vals[2], "✓ vorhanden"), tags=("vorhanden",))
 
     def export_excel():
         data = [{"Menge": tree.item(i, "values")[0],
                  "Einheit": tree.item(i, "values")[1],
-                 "Zutat": tree.item(i, "values")[2]}
+                 "Zutat": tree.item(i, "values")[2],
+                 "Status": tree.item(i, "values")[3]}
                 for i in tree.get_children()]
         if not data:
             messagebox.showwarning("Leer", "Einkaufsliste ist leer.", parent=win)
@@ -241,13 +265,34 @@ def zeige_einkaufsliste():
     def copy_text():
         lines = []
         for i in tree.get_children():
-            menge, einheit, zutat = tree.item(i, "values")
-            lines.append(f"{menge} {einheit} {zutat}".strip())
+            vals = tree.item(i, "values")
+            menge, einheit, zutat, status = vals
+            line = f"{menge} {einheit} {zutat}".strip()
+            if status:
+                line += f"  [{status}]"
+            lines.append(line)
         win.clipboard_clear()
         win.clipboard_append("\n".join(lines))
         messagebox.showinfo("Kopiert", "Einkaufsliste in Zwischenablage kopiert.", parent=win)
 
-    ttk.Button(frame_btns, text="Ausgewählte löschen", command=delete_selected).pack(side="left", padx=4)
+    def on_close():
+        vorhanden = []
+        zusaetzlich = []
+        for iid in tree.get_children():
+            vals = tree.item(iid, "values")
+            tags = tree.item(iid, "tags")
+            if "vorhanden" in tags:
+                vorhanden.append([vals[2], str(vals[1])])
+            elif "zusaetzlich" in tags:
+                zusaetzlich.append({"menge": vals[0], "einheit": vals[1], "zutat": vals[2]})
+        _einkaufsliste_state["vorhanden"] = vorhanden
+        _einkaufsliste_state["zusaetzlich"] = zusaetzlich
+        save_session()
+        win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
+
+    ttk.Button(frame_btns, text="Als vorhanden markieren", command=toggle_vorhanden).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Excel exportieren", command=export_excel).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Text kopieren", command=copy_text).pack(side="left", padx=4)
 
@@ -270,9 +315,21 @@ def export_plan_und_einkaufsliste():
         row["Punkte"] = punkte_labels[tag]["text"]
         plan_data.append(row)
     plan_df = pd.DataFrame(plan_data)
+
+    # Einkaufsliste mit Status aus gespeichertem Zustand aufbauen
+    vorhanden_keys = {tuple(x) for x in _einkaufsliste_state.get("vorhanden", [])}
+    el_rows = []
+    for _, row in einkaufsliste.iterrows():
+        key = (row["Zutat"], str(row["Einheit"]))
+        status = "✓ vorhanden" if key in vorhanden_keys else ""
+        el_rows.append({"Menge": row["Menge"], "Einheit": row["Einheit"], "Zutat": row["Zutat"], "Status": status})
+    for item in _einkaufsliste_state.get("zusaetzlich", []):
+        el_rows.append({"Menge": item["menge"], "Einheit": item["einheit"], "Zutat": item["zutat"], "Status": "+ zusätzlich"})
+    el_df = pd.DataFrame(el_rows) if el_rows else pd.DataFrame(columns=["Menge", "Einheit", "Zutat", "Status"])
+
     with pd.ExcelWriter(filepath) as writer:
         plan_df.to_excel(writer, index=False, sheet_name="Wochenplan")
-        einkaufsliste.to_excel(writer, index=False, sheet_name="Einkaufsliste")
+        el_df.to_excel(writer, index=False, sheet_name="Einkaufsliste")
     messagebox.showinfo("Erfolg", "Wochenplan und Einkaufsliste exportiert.")
 
 # ── Rezeptverwaltung ──────────────────────────────────────────────────────────
@@ -494,10 +551,12 @@ def save_session():
             "rezept": auswahl_rezept[key].get(),
             "personen": anzahl_personen[key].get()
         }
+    data["einkaufsliste"] = _einkaufsliste_state
     with open(SESSION_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
 def load_session():
+    global _einkaufsliste_state
     if not os.path.exists(SESSION_FILE):
         return
     try:
@@ -505,7 +564,11 @@ def load_session():
             data = json.load(f)
     except Exception:
         return
+    if "einkaufsliste" in data:
+        _einkaufsliste_state = data["einkaufsliste"]
     for key, vals in data.items():
+        if key == "einkaufsliste":
+            continue
         if key not in auswahl_kat:
             continue
         kat = vals.get("kategorie", "")
