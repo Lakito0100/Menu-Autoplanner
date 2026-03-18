@@ -5,11 +5,19 @@ import pandas as pd
 from tkinter.filedialog import asksaveasfilename
 import re
 import os
+import sys
 import json
 
-SESSION_FILE = "session.json"
+# Basisverzeichnis: bei .exe = Ordner der EXE, bei .py = Ordner des Skripts
+if getattr(sys, "frozen", False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-df = pd.read_excel("Rezepte.xlsx")
+SESSION_FILE = os.path.join(BASE_DIR, "session.json")
+REZEPTE_FILE = os.path.join(BASE_DIR, "Rezepte.xlsx")
+
+df = pd.read_excel(REZEPTE_FILE)
 
 def parse_zutat(z):
     z = str(z).strip()
@@ -271,7 +279,7 @@ def export_plan_und_einkaufsliste():
 
 def reload_rezepte():
     global df
-    df = pd.read_excel("Rezepte.xlsx")
+    df = pd.read_excel(REZEPTE_FILE)
     _lade_rezepte_aus_df(df)
     kategorien = list(rezepte_by_kategorie.keys())
     for kat_box in auswahl_kat.values():
@@ -434,7 +442,7 @@ def oeffne_rezeptverwaltung():
             row_data[f"Zutat {i}"] = z
 
         try:
-            existing_df = pd.read_excel("Rezepte.xlsx")
+            existing_df = pd.read_excel(REZEPTE_FILE)
         except Exception:
             existing_df = pd.DataFrame()
 
@@ -447,7 +455,7 @@ def oeffne_rezeptverwaltung():
         else:
             existing_df = pd.concat([existing_df, pd.DataFrame([row_data])], ignore_index=True)
 
-        existing_df.to_excel("Rezepte.xlsx", index=False)
+        existing_df.to_excel(REZEPTE_FILE, index=False)
         reload_rezepte()
         refresh_listbox()
         entries["Kategorie:"]["values"] = list(rezepte_by_kategorie.keys())
@@ -462,9 +470,9 @@ def oeffne_rezeptverwaltung():
         name = rezept_infos[label]["rezeptname"]
         if not messagebox.askyesno("Löschen bestätigen", f"Rezept '{name}' wirklich löschen?", parent=win):
             return
-        existing_df = pd.read_excel("Rezepte.xlsx")
+        existing_df = pd.read_excel(REZEPTE_FILE)
         existing_df = existing_df[existing_df["Rezeptname"] != name]
-        existing_df.to_excel("Rezepte.xlsx", index=False)
+        existing_df.to_excel(REZEPTE_FILE, index=False)
         reload_rezepte()
         refresh_listbox()
         neu_rezept()
