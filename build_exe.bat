@@ -12,12 +12,9 @@ if %ERRORLEVEL% EQU 0 (
     set PYTHON=python
 )
 
-:: PyInstaller installieren falls noetig
-%PYTHON% -m pip show pyinstaller >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo PyInstaller wird installiert...
-    %PYTHON% -m pip install pyinstaller
-)
+:: Abhaengigkeiten installieren
+echo Installiere Abhaengigkeiten...
+%PYTHON% -m pip install pyinstaller pandas openpyxl
 
 :: EXE bauen
 echo Baue Menueplaner.exe ...
