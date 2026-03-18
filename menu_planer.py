@@ -294,15 +294,15 @@ def oeffne_rezeptverwaltung():
 
     # Linke Spalte: Rezeptliste
     frame_left = ttk.Frame(win)
-    frame_left.pack(side="left", fill="y", padx=(10, 0), pady=10)
+    frame_left.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
 
     ttk.Label(frame_left, text="Rezepte", font=("Arial", 10, "bold")).pack(anchor="w")
 
     frame_lb = ttk.Frame(frame_left)
-    frame_lb.pack(fill="y", expand=True)
+    frame_lb.pack(fill="both", expand=True)
 
-    listbox = tk.Listbox(frame_lb, width=32, height=32, exportselection=False)
-    listbox.pack(side="left", fill="y", expand=True)
+    listbox = tk.Listbox(frame_lb, width=50, height=32, exportselection=False)
+    listbox.pack(side="left", fill="both", expand=True)
     sb_lb = ttk.Scrollbar(frame_lb, orient="vertical", command=listbox.yview)
     listbox.configure(yscrollcommand=sb_lb.set)
     sb_lb.pack(side="left", fill="y")
