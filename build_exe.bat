@@ -1,23 +1,31 @@
 @echo off
 echo ============================================
-echo   Menueплaner - EXE Build
+echo   Menueplaner - EXE Build
 echo ============================================
 echo.
 
+:: Python-Befehl ermitteln (py-Launcher oder python)
+where py >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    set PYTHON=py
+) else (
+    set PYTHON=python
+)
+
 :: PyInstaller installieren falls noetig
-pip show pyinstaller >nul 2>&1
+%PYTHON% -m pip show pyinstaller >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo PyInstaller wird installiert...
-    pip install pyinstaller
+    %PYTHON% -m pip install pyinstaller
 )
 
 :: EXE bauen
-echo Baue menu_planer.exe ...
-pyinstaller --onefile --windowed --name "Menueplaner" menu_planer.py
+echo Baue Menueplaner.exe ...
+%PYTHON% -m PyInstaller --onefile --windowed --name "Menueplaner" menu_planer.py
 
 echo.
 echo ============================================
-echo Fertig! Die EXE liegt unter: dist\Menueплaner.exe
+echo Fertig! Die EXE liegt unter: dist\Menueplaner.exe
 echo Wichtig: Rezepte.xlsx muss im selben Ordner wie die EXE liegen!
 echo ============================================
 pause
