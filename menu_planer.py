@@ -66,8 +66,8 @@ mahlzeiten = ["Frühstück", "Mittagessen", "Abendessen"]
 
 root = tk.Tk()
 root.title("Menüplaner")
-root.geometry("750x830")
-root.minsize(800, 860)
+root.geometry("900x950")
+root.minsize(900, 900)
 
 canvas = tk.Canvas(root)
 scroll_y = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
