@@ -21,7 +21,10 @@ if %ERRORLEVEL% NEQ 0 (
 
 :: EXE bauen
 echo Baue Menueplaner.exe ...
-%PYTHON% -m PyInstaller --onefile --windowed --name "Menueplaner" menu_planer.py
+%PYTHON% -m PyInstaller --onefile --windowed --name "Menueplaner" ^
+    --collect-all pandas ^
+    --collect-all openpyxl ^
+    menu_planer.py
 
 echo.
 echo ============================================
