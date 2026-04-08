@@ -1,1 +1,29 @@
+# Python byte-compiled / cache
 __pycache__/
+*.py[cod]
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyInstaller output
+*.exe
+
+# Application runtime files
+session.json
+
+# macOS
+.DS_Store
+
+# IDE – JetBrains / IntelliJ
+.idea/
+
+# Windows thumbnail cache
+Thumbs.db
