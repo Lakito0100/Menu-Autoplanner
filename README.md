@@ -4,8 +4,12 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
+> **Hinweis:** Die Punkte-Spalte ist generisch und kann für beliebige Ernährungsprogramme
+> verwendet werden. Dieses Projekt steht in keiner Verbindung zur WW International, Inc.
+> „Weight Watchers" ist eine eingetragene Marke der WW International, Inc.
+
 Ein lokales Python-Werkzeug zur wöchentlichen Menüplanung mit Rezeptdatenbank,
-automatischer Einkaufsliste und Weight-Watchers-Punkteberechnung.
+automatischer Einkaufsliste und Punkte-Berechnung.
 
 ---
 
@@ -13,7 +17,7 @@ automatischer Einkaufsliste und Weight-Watchers-Punkteberechnung.
 
 - **Wochenplanung** – 7 Tage × 3 Mahlzeiten (Frühstück, Mittag, Abend) mit Kategorie- und Rezeptauswahl sowie Personenanzahl pro Mahlzeit
 - **Rezeptsuche** – Live-Filterung im Dropdown während der Eingabe
-- **Weight-Watchers-Punkte** – Tagespunkte werden automatisch berechnet und angezeigt
+- **Punkte** – Tagespunkte werden automatisch berechnet und angezeigt
 - **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar oder manuell ergänzbar
 - **Export** – Wochenplan + Einkaufsliste als Excel-Datei (`.xlsx`) mit zwei Tabellenblättern
 - **Zwischenablage** – Einkaufsliste als formatierten Text kopieren
@@ -82,7 +86,7 @@ Die Datei enthält folgende Spalten:
 |--------|-------------|
 | `Rezeptname` | Name des Rezepts |
 | `Kategorie` | z. B. Suppe, Bowls, Pasta |
-| `Punkte` | Weight-Watchers-Punkte für das Gesamtrezept |
+| `Punkte` | Punkte für das Gesamtrezept |
 | `Portionen` | Personenanzahl, für die das Rezept ausgelegt ist |
 | `Zutat 1` … `Zutat n` | Zutaten im Format `Menge Einheit Name` |
 

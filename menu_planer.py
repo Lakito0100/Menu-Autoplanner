@@ -8,6 +8,8 @@ import os
 import sys
 import json
 
+__version__ = "1.0.0"
+
 # Basisverzeichnis: bei .exe = Ordner der EXE, bei .py = Ordner des Skripts
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -19,7 +21,27 @@ REZEPTE_FILE = os.path.join(BASE_DIR, "Rezepte.xlsx")
 
 _einkaufsliste_state = {"vorhanden": [], "zusaetzlich": []}
 
-df = pd.read_excel(REZEPTE_FILE)
+try:
+    df = pd.read_excel(REZEPTE_FILE)
+except FileNotFoundError:
+    _tmp = tk.Tk()
+    _tmp.withdraw()
+    messagebox.showerror(
+        "Rezeptdatei fehlt",
+        f"'{os.path.basename(REZEPTE_FILE)}' wurde nicht gefunden.\n"
+        "Bitte 'Rezepte.xlsx' in denselben Ordner wie das Programm legen."
+    )
+    _tmp.destroy()
+    sys.exit(1)
+except Exception as e:
+    _tmp = tk.Tk()
+    _tmp.withdraw()
+    messagebox.showerror(
+        "Fehler beim Laden",
+        f"Rezeptdatei konnte nicht geladen werden:\n{e}"
+    )
+    _tmp.destroy()
+    sys.exit(1)
 
 def parse_zutat(z):
     z = str(z).strip()
@@ -67,7 +89,7 @@ tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "S
 mahlzeiten = ["Frühstück", "Mittagessen", "Abendessen"]
 
 root = tk.Tk()
-root.title("Menüplaner")
+root.title(f"Menüplaner v{__version__}")
 root.geometry("900x950")
 root.minsize(900, 900)
 
@@ -110,13 +132,15 @@ def update_rezept_dropdown(event=None):
 
 def update_punkte():
     for tag in tage:
-        tages_summe = 0
+        tages_summe = 0.0
         for mahlzeit in mahlzeiten:
             key = f"{tag}_{mahlzeit}"
             rezept = auswahl_rezept[key].get()
             if rezept in rezept_infos:
-                tages_summe += rezept_infos[rezept]["punkte"]
-        punkte_labels[tag]["text"] = f"{tages_summe} Pkt"
+                portionen = rezept_infos[rezept]["portionen"]
+                faktor = 1.0 / portionen if portionen > 0 else 1.0
+                tages_summe += rezept_infos[rezept]["punkte"] * faktor
+        punkte_labels[tag]["text"] = f"{round(tages_summe, 1)} Pkt"
 
 def setup_searchable_rezept(key):
     """Macht die Rezept-Combobox durchsuchbar (Freitext-Filter)."""
@@ -156,10 +180,9 @@ def generate_list():
             for z in rezept_infos[rezept]["zutaten"]:
                 k = (z["zutat"], z["einheit"])
                 zutaten_dict[k] = zutaten_dict.get(k, 0) + z["menge"] * faktor
-    generate_list.einkaufsliste = pd.DataFrame([
+    return pd.DataFrame([
         {"Menge": round(m, 2), "Einheit": e, "Zutat": z} for (z, e), m in zutaten_dict.items()
     ])
-    return generate_list.einkaufsliste
 
 def zeige_einkaufsliste():
     global _einkaufsliste_state
@@ -586,11 +609,10 @@ def load_session():
 def beenden():
     save_session()
     root.destroy()
-    os._exit(0)
 
 # ── GUI aufbauen ──────────────────────────────────────────────────────────────
 
-ttk.Label(scroll_frame, text="Menüplaner", font=("Arial", 14, "bold")).grid(
+ttk.Label(scroll_frame, text=f"Menüplaner v{__version__}", font=("Arial", 14, "bold")).grid(
     row=0, column=0, columnspan=5, pady=10)
 
 for r, tag in enumerate(tage):

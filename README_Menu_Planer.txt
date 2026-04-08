@@ -3,7 +3,7 @@ Menüplaner - Anleitung
 
 Dies ist ein lokal ausführbares Python-Tool zum wöchentlichen Planen von
 Mahlzeiten mit Rezeptdatenbank, automatischer Einkaufsliste und
-Weight-Watchers-Punkteberechnung.
+Punkte-Berechnung.
 
 
 Voraussetzungen
@@ -44,7 +44,7 @@ Funktionen im Überblick
    - Pro Mahlzeit wählbar: Kategorie, Rezept und Personenanzahl
    - Suchfunktion im Rezept-Dropdown (live filtern während der Eingabe)
 
-2. Weight-Watchers-Punkte
+2. Punkte
    - Live-Berechnung der Tagespunkte basierend auf gewählten Rezepten
    - Punktesumme pro Tag wird direkt in der Oberfläche angezeigt
 
@@ -88,7 +88,7 @@ Die Datei `Rezepte.xlsx` enthält alle verfügbaren Rezepte.
 
 Wichtige Spalten:
 - `Rezeptname`:  Name des Rezepts
-- `Punkte`:      Weight-Watchers-Punkte für das gesamte Rezept
+- `Punkte`:      Punkte für das gesamte Rezept
 - `Kategorie`:   z. B. Suppe, Bowls, Spaghetti etc.
 - `Portionen`:   Für wie viele Personen das Rezept ausgelegt ist
 - `Zutat 1` bis `Zutat n`: Zutaten im Format:
