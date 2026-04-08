@@ -4,10 +4,6 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-> **Hinweis:** Die Punkte-Spalte ist generisch und kann für beliebige Ernährungsprogramme
-> verwendet werden. Dieses Projekt steht in keiner Verbindung zur WW International, Inc.
-> „Weight Watchers" ist eine eingetragene Marke der WW International, Inc.
-
 Ein lokales Python-Werkzeug zur wöchentlichen Menüplanung mit Rezeptdatenbank,
 automatischer Einkaufsliste und Punkte-Berechnung.
 
