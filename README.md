@@ -62,6 +62,29 @@ zum Download bereit.
 2. Die Datei `Rezepte.xlsx` aus dem Repository in denselben Ordner legen
 3. Doppelklick auf `Menueplaner_win.exe`
 
+### Option C – Selbst kompilieren (macOS / Linux)
+
+> **Hinweis:** Die Build-Skripte für macOS und Linux wurden nicht offiziell
+> getestet. Bei Problemen empfehlen wir Option A (Python-Skript direkt starten).
+
+**macOS:**
+
+```bash
+./build_mac.sh
+```
+
+Die fertige App liegt danach unter `dist/Menueplaner`.
+
+**Linux:**
+
+```bash
+./build_linux.sh
+```
+
+Die fertige Datei liegt danach unter `dist/Menueplaner`.
+
+In beiden Fällen muss `Rezepte.xlsx` im selben Ordner wie die kompilierte App liegen.
+
 ---
 
 ## Bedienung
@@ -100,15 +123,18 @@ Die Datei enthält folgende Spalten:
 
 ---
 
-## Windows-EXE selbst erstellen
+## App selbst kompilieren
 
-```bat
-build_exe.bat
-```
+| Plattform | Skript | Output |
+|-----------|--------|--------|
+| Windows | `build_exe.bat` | `dist\Menueplaner.exe` |
+| macOS | `./build_mac.sh` | `dist/Menueplaner` |
+| Linux | `./build_linux.sh` | `dist/Menueplaner` |
 
-Die fertige Datei liegt danach unter `dist\Menueplaner.exe`.
-PyInstaller wird durch das Skript automatisch installiert.
-Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die EXE befinden.
+PyInstaller wird durch die Skripte automatisch installiert.
+Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befinden.
+
+> **Hinweis:** Die macOS- und Linux-Skripte wurden nicht offiziell getestet.
 
 ---
 
