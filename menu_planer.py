@@ -8,7 +8,7 @@ import os
 import sys
 import json
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # Basisverzeichnis: bei .exe = Ordner der EXE, bei .py = Ordner des Skripts
 if getattr(sys, "frozen", False):
@@ -70,10 +70,20 @@ def _lade_rezepte_aus_df(source_df):
     for _, row in source_df.iterrows():
         rezept = row["Rezeptname"]
         kategorie = row["Kategorie"] if "Kategorie" in row and pd.notna(row["Kategorie"]) else "Allgemein"
-        punkte = row["Punkte"]
-        portionen = row["Portionen"] if "Portionen" in row and pd.notna(row["Portionen"]) else 1
+        try:
+            punkte = float(str(row["Punkte"]).replace(",", ".")) if pd.notna(row["Punkte"]) else 0.0
+        except (ValueError, TypeError):
+            punkte = 0.0
+        portionen_raw = row["Portionen"] if "Portionen" in row and pd.notna(row["Portionen"]) else 1
+        try:
+            portionen = float(str(portionen_raw).replace(",", "."))
+            if portionen <= 0:
+                portionen = 1.0
+        except (ValueError, TypeError):
+            portionen = 1.0
         zutaten = [parse_zutat(row[col]) for col in row.index if col.startswith("Zutat") and pd.notna(row[col])]
-        rezept_label = f"{rezept} ({punkte} Pkt)"
+        punkte_display = int(punkte) if punkte == int(punkte) else punkte
+        rezept_label = f"{rezept} ({punkte_display} Pkt)"
         rezept_infos[rezept_label] = {
             "punkte": punkte,
             "zutaten": zutaten,
@@ -103,6 +113,23 @@ canvas.pack(side="left", fill="both", expand=True)
 scroll_y.pack(side="right", fill="y")
 
 scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+def _bind_mousewheel(event):
+    if sys.platform.startswith("linux"):
+        canvas.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+        canvas.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+    else:
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+def _unbind_mousewheel(event):
+    if sys.platform.startswith("linux"):
+        canvas.unbind_all("<Button-4>")
+        canvas.unbind_all("<Button-5>")
+    else:
+        canvas.unbind_all("<MouseWheel>")
+
+scroll_frame.bind("<Enter>", _bind_mousewheel)
+scroll_frame.bind("<Leave>", _unbind_mousewheel)
 
 auswahl_kat = {}
 auswahl_rezept = {}
@@ -173,7 +200,7 @@ def generate_list():
         if rezept in rezept_infos:
             try:
                 personen = float(personen)
-            except:
+            except (ValueError, TypeError):
                 personen = 1
             portionen = rezept_infos[rezept]["portionen"]
             faktor = personen / portionen if portionen > 0 else 1
@@ -282,8 +309,11 @@ def zeige_einkaufsliste():
                                      filetypes=[("Excel-Dateien", "*.xlsx")],
                                      parent=win)
         if filepath:
-            pd.DataFrame(data).to_excel(filepath, index=False)
-            messagebox.showinfo("Erfolg", "Einkaufsliste exportiert.", parent=win)
+            try:
+                pd.DataFrame(data).to_excel(filepath, index=False)
+                messagebox.showinfo("Erfolg", "Einkaufsliste exportiert.", parent=win)
+            except Exception as e:
+                messagebox.showerror("Fehler", f"Export fehlgeschlagen:\n{e}", parent=win)
 
     def copy_text():
         lines = []
@@ -310,14 +340,31 @@ def zeige_einkaufsliste():
                 zusaetzlich.append({"menge": vals[0], "einheit": vals[1], "zutat": vals[2]})
         _einkaufsliste_state["vorhanden"] = vorhanden
         _einkaufsliste_state["zusaetzlich"] = zusaetzlich
-        save_session()
-        win.destroy()
+        try:
+            save_session()
+        finally:
+            win.destroy()
+
+    def delete_selected():
+        for iid in tree.selection():
+            tree.delete(iid)
+
+    def reset_liste():
+        for iid in tree.get_children():
+            tags = tree.item(iid, "tags")
+            if "zusaetzlich" in tags:
+                tree.delete(iid)
+            elif "vorhanden" in tags:
+                vals = tree.item(iid, "values")
+                tree.item(iid, values=(vals[0], vals[1], vals[2], ""), tags=())
 
     win.protocol("WM_DELETE_WINDOW", on_close)
 
     ttk.Button(frame_btns, text="Als vorhanden markieren", command=toggle_vorhanden).pack(side="left", padx=4)
+    ttk.Button(frame_btns, text="Eintrag löschen", command=delete_selected).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Excel exportieren", command=export_excel).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Text kopieren", command=copy_text).pack(side="left", padx=4)
+    ttk.Button(frame_btns, text="Liste zurücksetzen", command=reset_liste).pack(side="left", padx=4)
 
 # ── Wochenplan-Export ─────────────────────────────────────────────────────────
 
@@ -350,16 +397,45 @@ def export_plan_und_einkaufsliste():
         el_rows.append({"Menge": item["menge"], "Einheit": item["einheit"], "Zutat": item["zutat"], "Status": "+ zusätzlich"})
     el_df = pd.DataFrame(el_rows) if el_rows else pd.DataFrame(columns=["Menge", "Einheit", "Zutat", "Status"])
 
-    with pd.ExcelWriter(filepath) as writer:
-        plan_df.to_excel(writer, index=False, sheet_name="Wochenplan")
-        el_df.to_excel(writer, index=False, sheet_name="Einkaufsliste")
+    try:
+        with pd.ExcelWriter(filepath) as writer:
+            plan_df.to_excel(writer, index=False, sheet_name="Wochenplan")
+            el_df.to_excel(writer, index=False, sheet_name="Einkaufsliste")
+    except Exception as e:
+        messagebox.showerror("Fehler", f"Export fehlgeschlagen:\n{e}")
+        return
     messagebox.showinfo("Erfolg", "Wochenplan und Einkaufsliste exportiert.")
+
+def copy_wochenplan():
+    lines = []
+    for tag in tage:
+        lines.append(f"── {tag} ──")
+        tages_punkte = punkte_labels[tag]["text"]
+        for mahlzeit in mahlzeiten:
+            key = f"{tag}_{mahlzeit}"
+            rezept = auswahl_rezept[key].get()
+            personen = anzahl_personen[key].get()
+            rezeptname = rezept_infos.get(rezept, {}).get("rezeptname", rezept)
+            if rezeptname:
+                lines.append(f"  {mahlzeit}: {rezeptname} ({personen} Pers.)")
+            else:
+                lines.append(f"  {mahlzeit}: –")
+        lines.append(f"  Punkte: {tages_punkte}")
+        lines.append("")
+    text = "\n".join(lines).strip()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    messagebox.showinfo("Kopiert", "Wochenplan in Zwischenablage kopiert.")
 
 # ── Rezeptverwaltung ──────────────────────────────────────────────────────────
 
 def reload_rezepte():
     global df
-    df = pd.read_excel(REZEPTE_FILE)
+    try:
+        df = pd.read_excel(REZEPTE_FILE)
+    except Exception as e:
+        messagebox.showerror("Fehler", f"Rezeptdatei konnte nicht geladen werden:\n{e}")
+        return
     _lade_rezepte_aus_df(df)
     kategorien = list(rezepte_by_kategorie.keys())
     for kat_box in auswahl_kat.values():
@@ -535,7 +611,11 @@ def oeffne_rezeptverwaltung():
         else:
             existing_df = pd.concat([existing_df, pd.DataFrame([row_data])], ignore_index=True)
 
-        existing_df.to_excel(REZEPTE_FILE, index=False)
+        try:
+            existing_df.to_excel(REZEPTE_FILE, index=False)
+        except Exception as e:
+            messagebox.showerror("Fehler", f"Rezept konnte nicht gespeichert werden:\n{e}", parent=win)
+            return
         reload_rezepte()
         refresh_listbox()
         entries["Kategorie:"]["values"] = list(rezepte_by_kategorie.keys())
@@ -547,12 +627,24 @@ def oeffne_rezeptverwaltung():
             messagebox.showwarning("Kein Rezept gewählt", "Bitte zuerst ein Rezept auswählen.", parent=win)
             return
         label = listbox.get(sel[0])
-        name = rezept_infos[label]["rezeptname"]
+        info = rezept_infos.get(label)
+        if info is None:
+            messagebox.showwarning("Fehler", "Rezept nicht gefunden.", parent=win)
+            return
+        name = info["rezeptname"]
         if not messagebox.askyesno("Löschen bestätigen", f"Rezept '{name}' wirklich löschen?", parent=win):
             return
-        existing_df = pd.read_excel(REZEPTE_FILE)
+        try:
+            existing_df = pd.read_excel(REZEPTE_FILE)
+        except Exception as e:
+            messagebox.showerror("Fehler", f"Rezeptdatei konnte nicht gelesen werden:\n{e}", parent=win)
+            return
         existing_df = existing_df[existing_df["Rezeptname"] != name]
-        existing_df.to_excel(REZEPTE_FILE, index=False)
+        try:
+            existing_df.to_excel(REZEPTE_FILE, index=False)
+        except Exception as e:
+            messagebox.showerror("Fehler", f"Rezeptdatei konnte nicht gespeichert werden:\n{e}", parent=win)
+            return
         reload_rezepte()
         refresh_listbox()
         neu_rezept()
@@ -575,8 +667,11 @@ def save_session():
             "personen": anzahl_personen[key].get()
         }
     data["einkaufsliste"] = _einkaufsliste_state
-    with open(SESSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
+    try:
+        with open(SESSION_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
 
 def load_session():
     global _einkaufsliste_state
@@ -588,7 +683,12 @@ def load_session():
     except Exception:
         return
     if "einkaufsliste" in data:
-        _einkaufsliste_state = data["einkaufsliste"]
+        state = data["einkaufsliste"]
+        if isinstance(state, dict):
+            vorhanden = state.get("vorhanden", [])
+            zusaetzlich = state.get("zusaetzlich", [])
+            _einkaufsliste_state["vorhanden"] = vorhanden if isinstance(vorhanden, list) else []
+            _einkaufsliste_state["zusaetzlich"] = zusaetzlich if isinstance(zusaetzlich, list) else []
     for key, vals in data.items():
         if key == "einkaufsliste":
             continue
@@ -644,10 +744,12 @@ ttk.Button(scroll_frame, text="Einkaufsliste anzeigen",
            command=zeige_einkaufsliste).grid(row=1000, column=0, columnspan=5, pady=(10, 2))
 ttk.Button(scroll_frame, text="Einkaufsliste + Wochenplan exportieren",
            command=export_plan_und_einkaufsliste).grid(row=1001, column=0, columnspan=5, pady=2)
+ttk.Button(scroll_frame, text="Wochenplan als Text kopieren",
+           command=copy_wochenplan).grid(row=1002, column=0, columnspan=5, pady=2)
 ttk.Button(scroll_frame, text="Rezepte verwalten",
-           command=oeffne_rezeptverwaltung).grid(row=1002, column=0, columnspan=5, pady=2)
+           command=oeffne_rezeptverwaltung).grid(row=1003, column=0, columnspan=5, pady=2)
 ttk.Button(scroll_frame, text="Beenden",
-           command=beenden).grid(row=1003, column=0, columnspan=5, pady=(2, 10))
+           command=beenden).grid(row=1004, column=0, columnspan=5, pady=(2, 10))
 
 update_rezept_dropdown()
 load_session()
