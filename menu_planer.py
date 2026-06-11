@@ -370,6 +370,27 @@ def export_plan_und_einkaufsliste():
         el_df.to_excel(writer, index=False, sheet_name="Einkaufsliste")
     messagebox.showinfo("Erfolg", "Wochenplan und Einkaufsliste exportiert.")
 
+def copy_wochenplan():
+    lines = []
+    for tag in tage:
+        lines.append(f"── {tag} ──")
+        tages_punkte = punkte_labels[tag]["text"]
+        for mahlzeit in mahlzeiten:
+            key = f"{tag}_{mahlzeit}"
+            rezept = auswahl_rezept[key].get()
+            personen = anzahl_personen[key].get()
+            rezeptname = rezept_infos.get(rezept, {}).get("rezeptname", rezept)
+            if rezeptname:
+                lines.append(f"  {mahlzeit}: {rezeptname} ({personen} Pers.)")
+            else:
+                lines.append(f"  {mahlzeit}: –")
+        lines.append(f"  Punkte: {tages_punkte}")
+        lines.append("")
+    text = "\n".join(lines).strip()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    messagebox.showinfo("Kopiert", "Wochenplan in Zwischenablage kopiert.")
+
 # ── Rezeptverwaltung ──────────────────────────────────────────────────────────
 
 def reload_rezepte():
@@ -659,10 +680,12 @@ ttk.Button(scroll_frame, text="Einkaufsliste anzeigen",
            command=zeige_einkaufsliste).grid(row=1000, column=0, columnspan=5, pady=(10, 2))
 ttk.Button(scroll_frame, text="Einkaufsliste + Wochenplan exportieren",
            command=export_plan_und_einkaufsliste).grid(row=1001, column=0, columnspan=5, pady=2)
+ttk.Button(scroll_frame, text="Wochenplan als Text kopieren",
+           command=copy_wochenplan).grid(row=1002, column=0, columnspan=5, pady=2)
 ttk.Button(scroll_frame, text="Rezepte verwalten",
-           command=oeffne_rezeptverwaltung).grid(row=1002, column=0, columnspan=5, pady=2)
+           command=oeffne_rezeptverwaltung).grid(row=1003, column=0, columnspan=5, pady=2)
 ttk.Button(scroll_frame, text="Beenden",
-           command=beenden).grid(row=1003, column=0, columnspan=5, pady=(2, 10))
+           command=beenden).grid(row=1004, column=0, columnspan=5, pady=(2, 10))
 
 update_rezept_dropdown()
 load_session()
