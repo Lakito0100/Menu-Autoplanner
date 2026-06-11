@@ -313,9 +313,14 @@ def zeige_einkaufsliste():
         save_session()
         win.destroy()
 
+    def delete_selected():
+        for iid in tree.selection():
+            tree.delete(iid)
+
     win.protocol("WM_DELETE_WINDOW", on_close)
 
     ttk.Button(frame_btns, text="Als vorhanden markieren", command=toggle_vorhanden).pack(side="left", padx=4)
+    ttk.Button(frame_btns, text="Eintrag löschen", command=delete_selected).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Excel exportieren", command=export_excel).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Text kopieren", command=copy_text).pack(side="left", padx=4)
 
