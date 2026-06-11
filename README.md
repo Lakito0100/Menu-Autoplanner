@@ -1,5 +1,6 @@
 # Menüplaner
 
+[![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -14,9 +15,9 @@ automatischer Einkaufsliste und Punkte-Berechnung.
 - **Wochenplanung** – 7 Tage × 3 Mahlzeiten (Frühstück, Mittag, Abend) mit Kategorie- und Rezeptauswahl sowie Personenanzahl pro Mahlzeit
 - **Rezeptsuche** – Live-Filterung im Dropdown während der Eingabe
 - **Punkte** – Tagespunkte werden automatisch berechnet und angezeigt
-- **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar oder manuell ergänzbar
+- **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar, einzeln löschbar, manuell ergänzbar oder als Gesamtliste zurücksetzbar
 - **Export** – Wochenplan + Einkaufsliste als Excel-Datei (`.xlsx`) mit zwei Tabellenblättern
-- **Zwischenablage** – Einkaufsliste als formatierten Text kopieren
+- **Zwischenablage** – Einkaufsliste oder Wochenplan als formatierten Text kopieren
 - **Rezeptverwaltung (CRUD)** – Rezepte direkt in der App hinzufügen, bearbeiten und löschen
 - **Sitzungsspeicherung** – Der aktuelle Wochenplan und der Status der Einkaufsliste werden automatisch gespeichert und beim nächsten Start wiederhergestellt
 
@@ -135,6 +136,30 @@ PyInstaller wird durch die Skripte automatisch installiert.
 Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befinden.
 
 > **Hinweis:** Die macOS- und Linux-Skripte wurden nicht offiziell getestet.
+
+---
+
+## Projektstruktur
+
+| Datei | Beschreibung |
+|-------|-------------|
+| `menu_planer.py` | Hauptprogramm (GUI und Logik) |
+| `Rezepte.xlsx` | Rezeptdatenbank — muss im gleichen Ordner wie die App liegen |
+| `session.json` | Wird automatisch erstellt; speichert Wochenplan und Einkaufslisten-Status |
+| `requirements.txt` | Python-Abhängigkeiten für `pip install -r requirements.txt` |
+| `build_exe.bat` | Windows Build-Skript → `dist\Menueplaner.exe` |
+| `build_mac.sh` | macOS Build-Skript → `dist/Menueplaner` |
+| `build_linux.sh` | Linux Build-Skript → `dist/Menueplaner` |
+| `Menueplaner.spec` | PyInstaller-Konfigurationsdatei — nicht manuell bearbeiten |
+
+---
+
+## Versionsverlauf
+
+| Version | Neuerungen |
+|---------|-----------|
+| **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren; Bug-Fixes (Fehlerbehandlung bei Datei-I/O, Session-Validierung, Mausrad-Scrolling) |
+| **v1.0.0** | Erstveröffentlichung |
 
 ---
 
