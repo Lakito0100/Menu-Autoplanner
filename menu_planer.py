@@ -8,7 +8,7 @@ import os
 import sys
 import json
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # Basisverzeichnis: bei .exe = Ordner der EXE, bei .py = Ordner des Skripts
 if getattr(sys, "frozen", False):
