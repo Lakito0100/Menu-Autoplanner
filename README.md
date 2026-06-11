@@ -1,5 +1,6 @@
 # Menüplaner
 
+[![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -14,9 +15,9 @@ automatischer Einkaufsliste und Punkte-Berechnung.
 - **Wochenplanung** – 7 Tage × 3 Mahlzeiten (Frühstück, Mittag, Abend) mit Kategorie- und Rezeptauswahl sowie Personenanzahl pro Mahlzeit
 - **Rezeptsuche** – Live-Filterung im Dropdown während der Eingabe
 - **Punkte** – Tagespunkte werden automatisch berechnet und angezeigt
-- **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar oder manuell ergänzbar
+- **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar, einzeln löschbar, manuell ergänzbar oder als Gesamtliste zurücksetzbar
 - **Export** – Wochenplan + Einkaufsliste als Excel-Datei (`.xlsx`) mit zwei Tabellenblättern
-- **Zwischenablage** – Einkaufsliste als formatierten Text kopieren
+- **Zwischenablage** – Einkaufsliste oder Wochenplan als formatierten Text kopieren
 - **Rezeptverwaltung (CRUD)** – Rezepte direkt in der App hinzufügen, bearbeiten und löschen
 - **Sitzungsspeicherung** – Der aktuelle Wochenplan und der Status der Einkaufsliste werden automatisch gespeichert und beim nächsten Start wiederhergestellt
 
@@ -62,6 +63,29 @@ zum Download bereit.
 2. Die Datei `Rezepte.xlsx` aus dem Repository in denselben Ordner legen
 3. Doppelklick auf `Menueplaner_win.exe`
 
+### Option C – Selbst kompilieren (macOS / Linux)
+
+> **Hinweis:** Die Build-Skripte für macOS und Linux wurden nicht offiziell
+> getestet. Bei Problemen empfehlen wir Option A (Python-Skript direkt starten).
+
+**macOS:**
+
+```bash
+./build_mac.sh
+```
+
+Die fertige App liegt danach unter `dist/Menueplaner`.
+
+**Linux:**
+
+```bash
+./build_linux.sh
+```
+
+Die fertige Datei liegt danach unter `dist/Menueplaner`.
+
+In beiden Fällen muss `Rezepte.xlsx` im selben Ordner wie die kompilierte App liegen.
+
 ---
 
 ## Bedienung
@@ -100,15 +124,42 @@ Die Datei enthält folgende Spalten:
 
 ---
 
-## Windows-EXE selbst erstellen
+## App selbst kompilieren
 
-```bat
-build_exe.bat
-```
+| Plattform | Skript | Output |
+|-----------|--------|--------|
+| Windows | `build_exe.bat` | `dist\Menueplaner.exe` |
+| macOS | `./build_mac.sh` | `dist/Menueplaner` |
+| Linux | `./build_linux.sh` | `dist/Menueplaner` |
 
-Die fertige Datei liegt danach unter `dist\Menueplaner.exe`.
-PyInstaller wird durch das Skript automatisch installiert.
-Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die EXE befinden.
+PyInstaller wird durch die Skripte automatisch installiert.
+Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befinden.
+
+> **Hinweis:** Die macOS- und Linux-Skripte wurden nicht offiziell getestet.
+
+---
+
+## Projektstruktur
+
+| Datei | Beschreibung |
+|-------|-------------|
+| `menu_planer.py` | Hauptprogramm (GUI und Logik) |
+| `Rezepte.xlsx` | Rezeptdatenbank — muss im gleichen Ordner wie die App liegen |
+| `session.json` | Wird automatisch erstellt; speichert Wochenplan und Einkaufslisten-Status |
+| `requirements.txt` | Python-Abhängigkeiten für `pip install -r requirements.txt` |
+| `build_exe.bat` | Windows Build-Skript → `dist\Menueplaner.exe` |
+| `build_mac.sh` | macOS Build-Skript → `dist/Menueplaner` |
+| `build_linux.sh` | Linux Build-Skript → `dist/Menueplaner` |
+| `Menueplaner.spec` | PyInstaller-Konfigurationsdatei — nicht manuell bearbeiten |
+
+---
+
+## Versionsverlauf
+
+| Version | Neuerungen |
+|---------|-----------|
+| **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren; Bug-Fixes (Fehlerbehandlung bei Datei-I/O, Session-Validierung, Mausrad-Scrolling) |
+| **v1.0.0** | Erstveröffentlichung |
 
 ---
 
