@@ -317,12 +317,22 @@ def zeige_einkaufsliste():
         for iid in tree.selection():
             tree.delete(iid)
 
+    def reset_liste():
+        for iid in tree.get_children():
+            tags = tree.item(iid, "tags")
+            if "zusaetzlich" in tags:
+                tree.delete(iid)
+            elif "vorhanden" in tags:
+                vals = tree.item(iid, "values")
+                tree.item(iid, values=(vals[0], vals[1], vals[2], ""), tags=())
+
     win.protocol("WM_DELETE_WINDOW", on_close)
 
     ttk.Button(frame_btns, text="Als vorhanden markieren", command=toggle_vorhanden).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Eintrag löschen", command=delete_selected).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Excel exportieren", command=export_excel).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Als Text kopieren", command=copy_text).pack(side="left", padx=4)
+    ttk.Button(frame_btns, text="Liste zurücksetzen", command=reset_liste).pack(side="left", padx=4)
 
 # ── Wochenplan-Export ─────────────────────────────────────────────────────────
 
