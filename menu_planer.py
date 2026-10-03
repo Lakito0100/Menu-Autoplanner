@@ -270,6 +270,10 @@ def auto_zoom():
     return berechne_auto_zoom(_X11, os.environ, _xft_dpi() if _X11 else None,
                               root.winfo_screenheight(), root.winfo_screenmmheight())
 
+def _schrift(name):
+    """Benannte Schrift (tkfont.nametofont kennt root= erst ab Python 3.10)."""
+    return tkfont.Font(root=root, name=name, exists=True)
+
 def px(wert):
     """Pixelangabe passend zum aktuellen Zoom."""
     return int(round(wert * _zoom["faktor"]))
@@ -278,12 +282,12 @@ def setze_zoom(faktor):
     faktor = min(max(float(faktor), 0.5), 4.0)
     _zoom["faktor"] = faktor
     for name in tkfont.names(root):
-        schrift = tkfont.nametofont(name, root=root)
+        schrift = _schrift(name)
         basis = _schrift_basis.setdefault(name, int(schrift.cget("size")) or 10)
         groesse = int(round(abs(basis) * faktor)) or 1
         schrift.configure(size=groesse if basis > 0 else -groesse)  # Punkte bzw. Pixel
     style = ttk.Style(root)
-    zeile = tkfont.nametofont("TkDefaultFont", root=root).metrics("linespace")
+    zeile = _schrift("TkDefaultFont").metrics("linespace")
     style.configure("Treeview", rowheight=zeile + px(6))
     # Pfeile und Breite von Scrollbars/Comboboxen (feste Pixelwerte des Themes)
     for stil, option in (("TCombobox", "arrowsize"), ("TScrollbar", "arrowsize"),
@@ -316,7 +320,7 @@ def _start_zoom():
     return _zoom["gespeichert"] or auto_zoom()
 
 # Eigene Schriften (statt fest "Arial", das es unter Linux meist nicht gibt)
-_standard = tkfont.nametofont("TkDefaultFont", root=root).actual()
+_standard = _schrift("TkDefaultFont").actual()
 SCHRIFT_TITEL = tkfont.Font(root=root, name="MenueTitel", family=_standard["family"],
                             size=int(round(_standard["size"] * 1.4)) or 14, weight="bold")
 SCHRIFT_FETT = tkfont.Font(root=root, name="MenueFett", family=_standard["family"],

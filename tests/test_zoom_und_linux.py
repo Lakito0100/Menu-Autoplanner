@@ -3,7 +3,6 @@ import json
 import os
 import stat
 import sys
-import tkinter.font as tkfont
 
 import pytest
 
@@ -35,14 +34,14 @@ def test_startet_mit_automatischem_zoom(app):
 
 def test_zoom_vergroessert_schriften_und_elemente(app):
     app.zoom_einstellen(1.0, speichern=False)
-    normal = tkfont.nametofont("TkDefaultFont", root=app.root).cget("size")
+    normal = app._schrift("TkDefaultFont").cget("size")
     titel = app.SCHRIFT_TITEL.cget("size")
     zeile = int(app.ttk.Style(app.root).lookup("Treeview", "rowheight"))
     breite = app.scroll_frame.winfo_reqwidth()
 
     app.zoom_einstellen(2.0, speichern=False)
     app.update()
-    assert abs(tkfont.nametofont("TkDefaultFont", root=app.root).cget("size")) == 2 * abs(normal)
+    assert abs(app._schrift("TkDefaultFont").cget("size")) == 2 * abs(normal)
     assert app.SCHRIFT_TITEL.cget("size") == 2 * titel
     assert int(app.ttk.Style(app.root).lookup("Treeview", "rowheight")) > zeile
     assert app.scroll_frame.winfo_reqwidth() > 1.5 * breite
@@ -50,7 +49,7 @@ def test_zoom_vergroessert_schriften_und_elemente(app):
 
     # zurück auf 100 % ergibt wieder die ursprünglichen Werte
     app.zoom_einstellen(1.0, speichern=False)
-    assert tkfont.nametofont("TkDefaultFont", root=app.root).cget("size") == normal
+    assert app._schrift("TkDefaultFont").cget("size") == normal
     assert app.SCHRIFT_TITEL.cget("size") == titel
 
 
