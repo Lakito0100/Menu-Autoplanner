@@ -62,11 +62,23 @@ def _selbsttest_log(text):
     if sys.stderr is not None:  # bei --windowed-Builds unter Windows None
         print(text, file=sys.stderr)
 
+def _erzeuge_tk(versuche=3):
+    """Unter Windows kann Tk beim Start vereinzelt eigene .tcl-Dateien nicht
+    lesen (z.B. während ein Virenscanner sie prüft) – dann kurz neu versuchen."""
+    import time
+    for versuch in range(versuche):
+        try:
+            return tk.Tk()
+        except tk.TclError:
+            if versuch == versuche - 1:
+                raise
+            time.sleep(0.5)
+
 def _fataler_fehler(titel, text):
     if SELBSTTEST:
         _selbsttest_log(f"FEHLER: {titel}: {text}")
         sys.exit(2)
-    _tmp = tk.Tk()
+    _tmp = _erzeuge_tk()
     _tmp.withdraw()
     messagebox.showerror(titel, text)
     _tmp.destroy()
@@ -188,18 +200,6 @@ _lade_rezepte_aus_df(df)
 
 tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 mahlzeiten = ["Frühstück", "Mittagessen", "Abendessen"]
-
-def _erzeuge_tk(versuche=3):
-    """Unter Windows kann Tk beim Start vereinzelt eigene .tcl-Dateien nicht
-    lesen (z.B. während ein Virenscanner sie prüft) – dann kurz neu versuchen."""
-    import time
-    for versuch in range(versuche):
-        try:
-            return tk.Tk()
-        except tk.TclError:
-            if versuch == versuche - 1:
-                raise
-            time.sleep(0.5)
 
 root = _erzeuge_tk()
 root.title(f"Menüplaner v{__version__}")

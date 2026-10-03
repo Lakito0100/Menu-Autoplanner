@@ -94,3 +94,39 @@ def test_finde_rezept_label(app):
     assert app.finde_rezept_label("veraltet", name) == label
     assert app.finde_rezept_label("gibt es nicht") == ""
     assert app.finde_rezept_label("") == ""
+
+
+def tk_der_einmal_fehlschlaegt(monkeypatch):
+    """Simuliert den sporadischen Windows-Fehler beim ersten Tk-Start."""
+    import time
+    import tkinter as tk
+    echtes_tk = tk.Tk
+    versuche = []
+
+    def tk_mit_fehler(*a, **k):
+        versuche.append(1)
+        if len(versuche) == 1:
+            raise tk.TclError('invalid command name "tcl_findLibrary"')
+        return echtes_tk(*a, **k)
+
+    monkeypatch.setattr(tk, "Tk", tk_mit_fehler)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    return versuche
+
+
+def test_start_uebersteht_voruebergehenden_tk_fehler(starte_app, monkeypatch):
+    versuche = tk_der_einmal_fehlschlaegt(monkeypatch)
+    app = starte_app()
+    assert len(versuche) == 2
+    assert app.rezept_infos
+
+
+def test_fehlermeldung_uebersteht_voruebergehenden_tk_fehler(app_ordner, starte_app, dialoge, monkeypatch):
+    """Regression (CI Windows): das Fehlerfenster startete Tk ohne Wiederholung."""
+    (app_ordner / "Rezepte.xlsx").unlink()
+    versuche = tk_der_einmal_fehlschlaegt(monkeypatch)
+    with pytest.raises(SystemExit) as e:
+        starte_app()
+    assert e.value.code == 1
+    assert len(versuche) == 2
+    assert dialoge.letzte()[1][0] == "Rezeptdatei fehlt"
