@@ -13,6 +13,7 @@ Wochenplanung mit Rezeptdatenbank, automatischer Einkaufsliste und Punkte-Berech
 - Export als Excel (Wochenplan + Einkaufsliste) oder als Text in die Zwischenablage
 - Rezepte direkt in der App anlegen, bearbeiten und löschen
 - Der aktuelle Plan wird beim Beenden gespeichert und beim nächsten Start wiederhergestellt
+- Anzeige-Zoom für hochauflösende Bildschirme: Menü „Ansicht" oder Strg + / Strg − / Strg 0 (macOS: Cmd). Auf 4K-Bildschirmen unter Linux wird automatisch vergrössert
 
 ## Download
 
@@ -76,7 +77,7 @@ Der Workflow baut daraufhin alle drei Apps, prüft sie mit dem Selbsttest und h�
 
 | Version | Neuerungen |
 |---------|-----------|
-| **v1.1.1** | Bessere Linux/macOS-Unterstützung, Kompatibilität mit pandas 3, automatische Tests und Release-Builds, zahlreiche Bug-Fixes |
+| **v1.1.1** | Bessere Linux/macOS-Unterstützung, Zoom für HiDPI/4K-Bildschirme, Kompatibilität mit pandas 3, automatische Tests und Release-Builds, zahlreiche Bug-Fixes |
 | **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren |
 | **v1.0.0** | Erstveröffentlichung |
 

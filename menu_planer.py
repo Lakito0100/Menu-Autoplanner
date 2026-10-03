@@ -1,5 +1,6 @@
 
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, messagebox
 import pandas as pd
 from tkinter.filedialog import asksaveasfilename
@@ -8,6 +9,7 @@ import os
 import sys
 import json
 import math
+import shutil
 import tempfile
 
 __version__ = "1.1.1"
@@ -203,6 +205,129 @@ root = _erzeuge_tk()
 root.title(f"Menüplaner v{__version__}")
 root.minsize(600, 400)
 
+# ── Anzeige-Zoom (HiDPI / 4K) ─────────────────────────────────────────────────
+# Tk skaliert unter Linux nach der DPI, die der X-Server meldet. XWayland meldet
+# auch auf 4K-Bildschirmen oft 96 dpi – dann ist alles winzig. Deshalb rechnet
+# die App unter X11 mit 96 dpi = 100 % und vergrössert selbst (Ansicht-Menü,
+# Strg +/-/0). Unter Windows und macOS ist 100 % die Systemeinstellung.
+
+ZOOM_STUFEN = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+_X11 = root.tk.call("tk", "windowingsystem") == "x11"
+_zoom = {"faktor": 1.0, "gespeichert": None}  # gespeichert: None = automatisch
+_schrift_basis = {}  # Grundgrösse der benannten Schriften bei 100 %
+_stil_basis = {}     # Grundwerte des ttk-Themes bei 100 %
+
+if _X11:
+    root.tk.call("tk", "scaling", 96 / 72)
+
+def _xft_dpi():
+    """Xft.dpi aus den X-Ressourcen (setzen z.B. GNOME und KDE beim Skalieren)."""
+    import subprocess
+    if not shutil.which("xrdb"):
+        return None
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False):  # PyInstaller: System-Bibliotheken für xrdb
+        if "LD_LIBRARY_PATH_ORIG" in env:
+            env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
+        else:
+            env.pop("LD_LIBRARY_PATH", None)
+    try:
+        ausgabe = subprocess.run(["xrdb", "-query"], capture_output=True, text=True,
+                                 timeout=2, env=env).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    treffer = re.search(r"^Xft\.dpi:\s*([\d.]+)", ausgabe, re.M)
+    return float(treffer.group(1)) if treffer else None
+
+def berechne_auto_zoom(x11, env, xft_dpi, hoehe_px, hoehe_mm):
+    """Zoomfaktor für den Start, wenn der Benutzer nichts eingestellt hat."""
+    if not x11:
+        return 1.0  # Windows/macOS skalieren selbst
+    def zahl(name):
+        try:
+            wert = float(env.get(name, ""))
+        except ValueError:
+            return None
+        return wert if math.isfinite(wert) and wert > 0 else None
+    faktor = None
+    if zahl("GDK_SCALE") or zahl("GDK_DPI_SCALE"):
+        faktor = (zahl("GDK_SCALE") or 1.0) * (zahl("GDK_DPI_SCALE") or 1.0)
+    elif zahl("QT_SCALE_FACTOR"):
+        faktor = zahl("QT_SCALE_FACTOR")
+    elif xft_dpi and abs(xft_dpi - 96) > 1:
+        faktor = xft_dpi / 96
+    elif hoehe_px >= 1200:
+        dpi = hoehe_px / (hoehe_mm / 25.4) if hoehe_mm > 0 else 0
+        if 110 < dpi < 600:  # glaubwürdige Bildschirmgrösse gemeldet
+            faktor = 2.0 if dpi >= 192 else 1.5 if dpi >= 144 else 1.0
+        elif hoehe_px >= 2000:  # 4K, aber DPI unbekannt (z.B. XWayland)
+            faktor = 2.0
+    if faktor is None:
+        return 1.0
+    return min(max(round(faktor * 4) / 4, 1.0), 3.0)
+
+def auto_zoom():
+    return berechne_auto_zoom(_X11, os.environ, _xft_dpi() if _X11 else None,
+                              root.winfo_screenheight(), root.winfo_screenmmheight())
+
+def px(wert):
+    """Pixelangabe passend zum aktuellen Zoom."""
+    return int(round(wert * _zoom["faktor"]))
+
+def setze_zoom(faktor):
+    faktor = min(max(float(faktor), 0.5), 4.0)
+    _zoom["faktor"] = faktor
+    for name in tkfont.names(root):
+        schrift = tkfont.nametofont(name, root=root)
+        basis = _schrift_basis.setdefault(name, int(schrift.cget("size")) or 10)
+        groesse = int(round(abs(basis) * faktor)) or 1
+        schrift.configure(size=groesse if basis > 0 else -groesse)  # Punkte bzw. Pixel
+    style = ttk.Style(root)
+    zeile = tkfont.nametofont("TkDefaultFont", root=root).metrics("linespace")
+    style.configure("Treeview", rowheight=zeile + px(6))
+    # Pfeile und Breite von Scrollbars/Comboboxen (feste Pixelwerte des Themes)
+    for stil, option in (("TCombobox", "arrowsize"), ("TScrollbar", "arrowsize"),
+                         ("TScrollbar", "width"), ("TSpinbox", "arrowsize")):
+        basis = _stil_basis.setdefault((stil, option), style.lookup(stil, option))
+        try:
+            style.configure(stil, **{option: px(float(basis))})
+        except (ValueError, TypeError):
+            pass  # Theme ohne diese Option (z.B. native Windows-/macOS-Themes)
+
+def _lade_zoom_einstellung():
+    """Liest nur den gespeicherten Zoom (vor dem Aufbau der Oberfläche)."""
+    try:
+        with open(SESSION_FILE, encoding="utf-8") as f:
+            zoom = json.load(f).get("einstellungen", {}).get("zoom")
+    except Exception:
+        return None
+    if isinstance(zoom, (int, float)) and not isinstance(zoom, bool) and 0.5 <= zoom <= 4:
+        return float(zoom)
+    return None
+
+def _start_zoom():
+    try:
+        umgebung = float(os.environ.get("MENUEPLANER_ZOOM", ""))
+        if 0.5 <= umgebung <= 4:
+            return umgebung
+    except ValueError:
+        pass
+    _zoom["gespeichert"] = _lade_zoom_einstellung()
+    return _zoom["gespeichert"] or auto_zoom()
+
+# Eigene Schriften (statt fest "Arial", das es unter Linux meist nicht gibt)
+_standard = tkfont.nametofont("TkDefaultFont", root=root).actual()
+SCHRIFT_TITEL = tkfont.Font(root=root, name="MenueTitel", family=_standard["family"],
+                            size=int(round(_standard["size"] * 1.4)) or 14, weight="bold")
+SCHRIFT_FETT = tkfont.Font(root=root, name="MenueFett", family=_standard["family"],
+                           size=_standard["size"] or 10, weight="bold")
+setze_zoom(_start_zoom())
+
+# Unter X11 übernimmt sonst jede Textauswahl in einem Eingabefeld die
+# PRIMARY-Auswahl des Systems. Das ist hier unnötig und vermeidet Probleme mit
+# der Zwischenablage-Brücke von Wayland-Desktops (XWayland).
+root.option_add("*exportSelection", False)
+
 canvas = tk.Canvas(root)
 scroll_y = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
 canvas.configure(yscrollcommand=scroll_y.set)
@@ -283,9 +408,12 @@ def _natuerlich(text):
     """Sortierschlüssel, der Zahlen numerisch vergleicht (S.20 vor S.101)."""
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", text)]
 
+_zwischenablage = {"text": None}  # zuletzt von der App kopierter Text
+
 def _in_zwischenablage(widget, text):
     widget.clipboard_clear()
     widget.clipboard_append(text)
+    _zwischenablage["text"] = text
     # Unter X11 (Linux) ist der Inhalt nur verfügbar, solange das Programm läuft
     widget.update()
 
@@ -414,10 +542,10 @@ def zeige_einkaufsliste():
     tree.heading("Einheit", text="Einheit")
     tree.heading("Zutat", text="Zutat")
     tree.heading("Status", text="Status")
-    tree.column("Menge", width=60, anchor="e")
-    tree.column("Einheit", width=70)
-    tree.column("Zutat", width=300)
-    tree.column("Status", width=110)
+    tree.column("Menge", width=px(60), anchor="e")
+    tree.column("Einheit", width=px(70))
+    tree.column("Zutat", width=px(300))
+    tree.column("Status", width=px(110))
 
     tree.tag_configure("vorhanden", foreground="#999999")
     tree.tag_configure("zusaetzlich", foreground="#0066cc", background="#eef4fb")
@@ -561,7 +689,7 @@ def zeige_einkaufsliste():
     ttk.Button(frame_btns, text="Als Text kopieren", command=copy_text).pack(side="left", padx=4)
     ttk.Button(frame_btns, text="Liste zurücksetzen", command=reset_liste).pack(side="left", padx=4)
 
-    _fenstergroesse(win, 700, 600)
+    _fenstergroesse(win, px(700), px(600))
     _modal(win)
 
 # ── Wochenplan-Export ─────────────────────────────────────────────────────────
@@ -667,6 +795,23 @@ def reload_rezepte(umbenannt=None):
             kat_box.set(rezept_infos[label]["kategorie"])
     update_rezept_dropdown()
 
+def _schreibe_rezepte(daten):
+    """Erst in eine versteckte Temp-Datei schreiben, dann ersetzen: Bei einem
+    Absturz oder vollem Datenträger bleibt die alte Rezepte.xlsx erhalten."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(REZEPTE_FILE), prefix=".Rezepte-", suffix=".xlsx")
+    os.close(fd)
+    try:
+        if os.path.exists(REZEPTE_FILE):
+            shutil.copymode(REZEPTE_FILE, tmp)  # Dateirechte beibehalten
+        daten.to_excel(tmp, index=False)
+        os.replace(tmp, REZEPTE_FILE)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
 def _lese_rezepte_zum_bearbeiten():
     # Als object einlesen: pandas >= 3 verweigert sonst z.B. Text in leeren
     # (float-)Zutat-Spalten oder Kommazahlen in Ganzzahl-Spalten.
@@ -681,7 +826,7 @@ def oeffne_rezeptverwaltung():
     frame_left = ttk.Frame(win)
     frame_left.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
 
-    ttk.Label(frame_left, text="Rezepte", font=("Arial", 10, "bold")).pack(anchor="w")
+    ttk.Label(frame_left, text="Rezepte", font=SCHRIFT_FETT).pack(anchor="w")
 
     frame_lb = ttk.Frame(frame_left)
     frame_lb.pack(fill="both", expand=True)
@@ -703,7 +848,7 @@ def oeffne_rezeptverwaltung():
     frame_right = ttk.Frame(win)
     frame_right.pack(side="left", fill="both", expand=True, padx=10, pady=10)
 
-    ttk.Label(frame_right, text="Rezeptdetails", font=("Arial", 10, "bold")).grid(
+    ttk.Label(frame_right, text="Rezeptdetails", font=SCHRIFT_FETT).grid(
         row=0, column=0, columnspan=2, pady=(0, 8), sticky="w")
 
     lbl_names = ["Rezeptname:", "Kategorie:", "Punkte:", "Portionen:"]
@@ -718,17 +863,17 @@ def oeffne_rezeptverwaltung():
         widget.grid(row=i + 1, column=1, sticky="w", pady=3)
         entries[lbl] = widget
 
-    ttk.Label(frame_right, text="Zutaten:", font=("Arial", 9, "bold")).grid(
+    ttk.Label(frame_right, text="Zutaten:", font=SCHRIFT_FETT).grid(
         row=6, column=0, columnspan=2, sticky="w", padx=5, pady=(10, 0))
     ttk.Label(frame_right, text="Format: Menge Einheit Zutatname  (z.B. '500 g Hackfleisch' oder '2 Eier')",
-              wraplength=380).grid(row=7, column=0, columnspan=2, sticky="w", padx=5)
+              wraplength=px(380)).grid(row=7, column=0, columnspan=2, sticky="w", padx=5)
 
     # Scrollbares Zutaten-Frame
     frame_z_outer = ttk.Frame(frame_right)
     frame_z_outer.grid(row=8, column=0, columnspan=2, sticky="nsew", padx=5, pady=4)
     frame_right.rowconfigure(8, weight=1)
 
-    canvas_z = tk.Canvas(frame_z_outer, height=250)
+    canvas_z = tk.Canvas(frame_z_outer, height=px(250))
     sb_z = ttk.Scrollbar(frame_z_outer, orient="vertical", command=canvas_z.yview)
     canvas_z.configure(yscrollcommand=sb_z.set)
     canvas_z.pack(side="left", fill="both", expand=True)
@@ -879,7 +1024,7 @@ def oeffne_rezeptverwaltung():
             existing_df = pd.concat([existing_df, pd.DataFrame([row_data], dtype=object)], ignore_index=True)
 
         try:
-            existing_df.to_excel(REZEPTE_FILE, index=False)
+            _schreibe_rezepte(existing_df)
         except Exception as e:
             messagebox.showerror("Fehler", f"Rezept konnte nicht gespeichert werden:\n{e}", parent=win)
             return
@@ -916,7 +1061,7 @@ def oeffne_rezeptverwaltung():
         namen = existing_df["Rezeptname"].map(lambda v: str(v).strip() if pd.notna(v) else "")
         existing_df = existing_df[namen != name]
         try:
-            existing_df.to_excel(REZEPTE_FILE, index=False)
+            _schreibe_rezepte(existing_df)
         except Exception as e:
             messagebox.showerror("Fehler", f"Rezeptdatei konnte nicht gespeichert werden:\n{e}", parent=win)
             return
@@ -931,7 +1076,7 @@ def oeffne_rezeptverwaltung():
     ttk.Button(frame_btns, text="Speichern", command=speichern_rezept).pack(side="left", padx=6)
     ttk.Button(frame_btns, text="Löschen", command=loeschen_rezept).pack(side="left", padx=6)
 
-    _fenstergroesse(win, 940, 680)
+    _fenstergroesse(win, px(940), px(680))
     _modal(win)
 
 # ── Session-Persistenz ────────────────────────────────────────────────────────
@@ -947,10 +1092,12 @@ def save_session():
             "personen": anzahl_personen[key].get()
         }
     data["einkaufsliste"] = _einkaufsliste_state
+    if _zoom["gespeichert"] is not None:
+        data["einstellungen"] = {"zoom": _zoom["gespeichert"]}
     try:
         os.makedirs(os.path.dirname(SESSION_FILE), exist_ok=True)
         # Erst in Temp-Datei schreiben, dann ersetzen: kein kaputtes JSON bei Absturz
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SESSION_FILE), suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SESSION_FILE), prefix=".session-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=1)
@@ -1001,17 +1148,40 @@ def load_session():
         anzahl_personen[key].insert(0, pers)
     update_punkte()
 
+def _auswahl_freigeben():
+    """Unter X11 gehören Zwischenablage und Textauswahl dem Programm, das sie
+    gesetzt hat. Vor dem Beenden geordnet freigeben, damit andere Programme
+    (unter Wayland über die XWayland-Brücke) nicht auf ein verschwundenes
+    Programm warten."""
+    if not _X11:
+        return
+    try:
+        if root.tk.call("selection", "own", "-selection", "PRIMARY"):
+            root.tk.call("selection", "clear", "-selection", "PRIMARY")
+        # Tk nennt keinen Besitzer der Zwischenablage. Nur freigeben, wenn sie
+        # noch den Text dieser App enthält – sonst würde die Zwischenablage
+        # eines anderen Programms gelöscht.
+        if _zwischenablage["text"] is not None and root.clipboard_get() == _zwischenablage["text"]:
+            root.tk.call("selection", "clear", "-selection", "CLIPBOARD")
+    except tk.TclError:
+        pass
+    try:
+        root.update()  # offene Anfragen beantworten und Freigabe senden
+    except tk.TclError:
+        pass
+
 def beenden():
     save_session()
+    _auswahl_freigeben()
     root.destroy()
 
 # ── GUI aufbauen ──────────────────────────────────────────────────────────────
 
-ttk.Label(scroll_frame, text=f"Menüplaner v{__version__}", font=("Arial", 14, "bold")).grid(
+ttk.Label(scroll_frame, text=f"Menüplaner v{__version__}", font=SCHRIFT_TITEL).grid(
     row=0, column=0, columnspan=5, pady=10)
 
 for r, tag in enumerate(tage):
-    ttk.Label(scroll_frame, text=tag, font=("Arial", 10, "bold")).grid(
+    ttk.Label(scroll_frame, text=tag, font=SCHRIFT_FETT).grid(
         row=1 + r * 5, column=0, sticky="w")
     for j, mahlzeit in enumerate(mahlzeiten):
         key = f"{tag}_{mahlzeit}"
@@ -1056,11 +1226,56 @@ root.protocol("WM_DELETE_WINDOW", beenden)
 if sys.platform == "darwin":
     root.createcommand("::tk::mac::Quit", beenden)
 
-# Fenstergrösse an Inhalt und Bildschirm anpassen (Schriftbreiten unterscheiden
-# sich zwischen Windows, macOS und Linux)
-root.update_idletasks()
-_fenstergroesse(root, scroll_frame.winfo_reqwidth() + scroll_y.winfo_reqwidth() + 4,
-                scroll_frame.winfo_reqheight() + 4)
+def _hauptfenster_anpassen():
+    """Fenstergrösse an Inhalt und Bildschirm anpassen (Schriftbreiten
+    unterscheiden sich zwischen Windows, macOS und Linux und je nach Zoom)."""
+    root.update_idletasks()
+    _fenstergroesse(root, scroll_frame.winfo_reqwidth() + scroll_y.winfo_reqwidth() + 4,
+                    scroll_frame.winfo_reqheight() + 4)
+
+# ── Ansicht-Menü (Zoom) ───────────────────────────────────────────────────────
+
+_zoom_var = tk.DoubleVar(root, value=_zoom["faktor"])
+
+def zoom_einstellen(faktor, speichern=True):
+    """Zoom ändern; faktor=None bedeutet automatisch."""
+    _zoom["gespeichert"] = None if faktor is None else min(max(float(faktor), 0.5), 4.0)
+    setze_zoom(auto_zoom() if faktor is None else _zoom["gespeichert"])
+    _zoom_var.set(_zoom["faktor"])
+    _hauptfenster_anpassen()
+    if speichern:
+        save_session()
+
+def zoom_schritt(richtung):
+    aktuell = _zoom["faktor"]
+    if richtung > 0:
+        groesser = [z for z in ZOOM_STUFEN if z > aktuell + 0.01]
+        ziel = groesser[0] if groesser else ZOOM_STUFEN[-1]
+    else:
+        kleiner = [z for z in ZOOM_STUFEN if z < aktuell - 0.01]
+        ziel = kleiner[-1] if kleiner else ZOOM_STUFEN[0]
+    zoom_einstellen(ziel)
+
+_menuleiste = tk.Menu(root, tearoff=False)
+_ansicht = tk.Menu(_menuleiste, tearoff=False)
+_menuleiste.add_cascade(label="Ansicht", menu=_ansicht)
+_taste = "Cmd" if sys.platform == "darwin" else "Strg"
+_ansicht.add_command(label="Grösser", accelerator=f"{_taste}++", command=lambda: zoom_schritt(1))
+_ansicht.add_command(label="Kleiner", accelerator=f"{_taste}+-", command=lambda: zoom_schritt(-1))
+_ansicht.add_command(label="Automatisch", accelerator=f"{_taste}+0", command=lambda: zoom_einstellen(None))
+_ansicht.add_separator()
+for _stufe in ZOOM_STUFEN:
+    _ansicht.add_radiobutton(label=f"{int(_stufe * 100)} %", variable=_zoom_var, value=_stufe,
+                             command=lambda s=_stufe: zoom_einstellen(s))
+root.config(menu=_menuleiste)
+
+_modifikator = "Command" if sys.platform == "darwin" else "Control"
+for _sequenz, _richtung in (("plus", 1), ("equal", 1), ("KP_Add", 1), ("minus", -1), ("KP_Subtract", -1)):
+    root.bind(f"<{_modifikator}-{_sequenz}>", lambda e, r=_richtung: zoom_schritt(r))
+for _sequenz in ("0", "KP_0"):
+    root.bind(f"<{_modifikator}-{_sequenz}>", lambda e: zoom_einstellen(None))
+
+_hauptfenster_anpassen()
 
 # ── Selbsttest ────────────────────────────────────────────────────────────────
 
@@ -1093,6 +1308,10 @@ def _selbsttest():
             for w in root.winfo_children():
                 if isinstance(w, tk.Toplevel):
                     w.destroy()
+        start_zoom = _zoom["faktor"]
+        setze_zoom(2.0)
+        root.update()
+        setze_zoom(start_zoom)
         export_plan_und_einkaufsliste()
         blaetter = pd.read_excel(export_datei, sheet_name=None)
         if set(blaetter) != {"Wochenplan", "Einkaufsliste"}:
@@ -1104,7 +1323,7 @@ def _selbsttest():
         _selbsttest_log(f"FEHLER: {f}")
     _selbsttest_log("SELBSTTEST " + ("FEHLGESCHLAGEN" if _selbsttest_fehler else "OK")
                     + f" ({len(rezept_infos)} Rezepte, Python {sys.version.split()[0]},"
-                    f" Tk {tk.TkVersion}, pandas {pd.__version__})")
+                    f" Tk {tk.TkVersion}, pandas {pd.__version__}, Zoom {_zoom['faktor']:g})")
     root.destroy()
 
 if SELBSTTEST:
