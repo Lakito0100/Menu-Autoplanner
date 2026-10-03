@@ -27,3 +27,9 @@ session.json
 
 # Windows thumbnail cache
 Thumbs.db
+
+# Selbsttest-Protokoll (MENUEPLANER_SELBSTTEST=1)
+selbsttest.log
+
+# pytest
+.pytest_cache/

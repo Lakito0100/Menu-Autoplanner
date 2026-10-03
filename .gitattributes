@@ -1,0 +1,6 @@
+# Zeilenenden: Windows-Batchdateien brauchen CRLF, Shell-Skripte LF
+* text=auto
+*.bat text eol=crlf
+*.sh text eol=lf
+*.py text eol=lf
+*.xlsx binary

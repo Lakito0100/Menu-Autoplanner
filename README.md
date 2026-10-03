@@ -1,168 +1,85 @@
 # Menüplaner
 
-[![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.1.1-brightgreen.svg)]()
+[![Tests](https://github.com/Lakito0100/Menu-Autoplanner/actions/workflows/tests.yml/badge.svg)](https://github.com/Lakito0100/Menu-Autoplanner/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-Ein lokales Python-Werkzeug zur wöchentlichen Menüplanung mit Rezeptdatenbank,
-automatischer Einkaufsliste und Punkte-Berechnung.
+Wochenplanung mit Rezeptdatenbank, automatischer Einkaufsliste und Punkte-Berechnung.
 
----
+- 7 Tage × 3 Mahlzeiten mit Rezeptsuche und Personenanzahl
+- Tagespunkte werden automatisch berechnet
+- Einkaufsliste: Mengen werden nach Personen skaliert und zusammengefasst; Einträge abhaken, löschen, ergänzen
+- Export als Excel (Wochenplan + Einkaufsliste) oder als Text in die Zwischenablage
+- Rezepte direkt in der App anlegen, bearbeiten und löschen
+- Der aktuelle Plan wird beim Beenden gespeichert und beim nächsten Start wiederhergestellt
 
-## Funktionen
+## Download
 
-- **Wochenplanung** – 7 Tage × 3 Mahlzeiten (Frühstück, Mittag, Abend) mit Kategorie- und Rezeptauswahl sowie Personenanzahl pro Mahlzeit
-- **Rezeptsuche** – Live-Filterung im Dropdown während der Eingabe
-- **Punkte** – Tagespunkte werden automatisch berechnet und angezeigt
-- **Einkaufsliste** – Alle Zutaten automatisch aggregiert, mengenproportional skaliert nach Personenanzahl; Artikel als „vorhanden" markierbar, einzeln löschbar, manuell ergänzbar oder als Gesamtliste zurücksetzbar
-- **Export** – Wochenplan + Einkaufsliste als Excel-Datei (`.xlsx`) mit zwei Tabellenblättern
-- **Zwischenablage** – Einkaufsliste oder Wochenplan als formatierten Text kopieren
-- **Rezeptverwaltung (CRUD)** – Rezepte direkt in der App hinzufügen, bearbeiten und löschen
-- **Sitzungsspeicherung** – Der aktuelle Wochenplan und der Status der Einkaufsliste werden automatisch gespeichert und beim nächsten Start wiederhergestellt
+Fertige Apps gibt es auf der [Releases-Seite](https://github.com/Lakito0100/Menu-Autoplanner/releases)
+unter **Assets**. Jedes Archiv enthält die App und `Rezepte.xlsx`. Beide müssen im selben Ordner bleiben.
 
----
+| System | Datei | Starten |
+|--------|-------|---------|
+| Windows 10/11 | `Menueplaner_win.zip` | entpacken, `Menueplaner.exe` doppelklicken |
+| macOS (nur Apple Silicon, M1 oder neuer) | `Menueplaner_mac.zip` | entpacken, `Menueplaner.app` per Rechtsklick → „Öffnen" |
+| Linux (x86-64) | `Menueplaner_linux.tar.gz` | `tar -xzf Menueplaner_linux.tar.gz && ./Menueplaner/Menueplaner` |
 
-## Voraussetzungen
+Die Apps sind nicht signiert:
 
-- Python 3.8 oder neuer (Tkinter ist in der Standardbibliothek enthalten)
-- `pandas`
-- `openpyxl`
+- **Windows:** Bei der SmartScreen-Warnung „Weitere Informationen" → „Trotzdem ausführen".
+- **macOS:** Rechtsklick → „Öffnen". Ab macOS 15 stattdessen unter Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen".
 
----
+## Mit Python starten
 
-## Installation
-
-### Option A – Python (alle Betriebssysteme)
+Voraussetzung ist Python 3.8+ mit Tkinter. Unter Linux z. B. `sudo apt install python3-tk python3-venv`, mit Homebrew-Python `brew install python-tk`.
 
 ```bash
-# 1. Repository klonen oder als ZIP herunterladen
 git clone https://github.com/Lakito0100/Menu-Autoplanner.git
 cd Menu-Autoplanner
-
-# 2. Abhängigkeiten installieren
-pip install -r requirements.txt
-
-# 3. Anwendung starten
-python menu_planer.py
+./start_menu_planer.sh          # Linux/macOS – richtet beim ersten Start .venv ein
+start_menu_planer.bat           # Windows (vorher: pip install -r requirements.txt)
 ```
 
-Unter Windows kann alternativ die Batchdatei verwendet werden:
+## Selbst kompilieren
 
-```
-start_menu_planer.bat
-```
+| System | Skript | Ergebnis |
+|--------|--------|----------|
+| Windows | `build_exe.bat` | `dist\Menueplaner.exe` |
+| macOS | `./build_mac.sh` | `dist/Menueplaner.app` |
+| Linux | `./build_linux.sh` | `dist/Menueplaner` |
 
-### Option B – Windows EXE (kein Python erforderlich)
-
-Die fertige Windows-Anwendung steht auf der
-[Releases-Seite](https://github.com/Lakito0100/Menu-Autoplanner/releases)
-zum Download bereit.
-
-1. `Menueplaner_win.exe` herunterladen
-2. Die Datei `Rezepte.xlsx` aus dem Repository in denselben Ordner legen
-3. Doppelklick auf `Menueplaner_win.exe`
-
-### Option C – Selbst kompilieren (macOS / Linux)
-
-> **Hinweis:** Die Build-Skripte für macOS und Linux wurden nicht offiziell
-> getestet. Bei Problemen empfehlen wir Option A (Python-Skript direkt starten).
-
-**macOS:**
-
-```bash
-./build_mac.sh
-```
-
-Die fertige App liegt danach unter `dist/Menueplaner`.
-
-**Linux:**
-
-```bash
-./build_linux.sh
-```
-
-Die fertige Datei liegt danach unter `dist/Menueplaner`.
-
-In beiden Fällen muss `Rezepte.xlsx` im selben Ordner wie die kompilierte App liegen.
-
----
-
-## Bedienung
-
-1. **Rezept auswählen** – Kategorie im linken Dropdown wählen, dann Rezept im rechten Dropdown (oder direkt tippen zum Suchen)
-2. **Personenanzahl** – Zahl rechts neben dem Rezept eingeben; Zutatenmengen werden automatisch skaliert
-3. **Einkaufsliste** – Schaltfläche „Einkaufsliste anzeigen" öffnet die aggregierte Liste; Artikel können abgehakt oder ergänzt werden
-4. **Export** – „Einkaufsliste + Wochenplan exportieren" speichert eine `.xlsx`-Datei
-5. **Rezepte verwalten** – Über die gleichnamige Schaltfläche lassen sich Rezepte hinzufügen, bearbeiten und löschen
-
----
+Die Skripte installieren PyInstaller selbst und kopieren `Rezepte.xlsx` nach `dist/`.
 
 ## Rezeptdatenbank (`Rezepte.xlsx`)
 
-Die Datei enthält folgende Spalten:
+Spalten: `Rezeptname`, `Kategorie`, `Punkte` (für das ganze Rezept), `Portionen`, `Zutat 1` … `Zutat n`.
 
-| Spalte | Beschreibung |
-|--------|-------------|
-| `Rezeptname` | Name des Rezepts |
-| `Kategorie` | z. B. Suppe, Bowls, Pasta |
-| `Punkte` | Punkte für das Gesamtrezept |
-| `Portionen` | Personenanzahl, für die das Rezept ausgelegt ist |
-| `Zutat 1` … `Zutat n` | Zutaten im Format `Menge Einheit Name` |
+Zutaten im Format `Menge Einheit Name`, z. B. `500 g Hackfleisch`, `1,5 l Brühe`, `1/2 TL Zimt`, `2 Eier`.
+Einheit und Menge sind optional. Zutaten ohne Menge (z. B. `Salz, Pfeffer`) stehen ohne Mengenangabe auf der Einkaufsliste.
 
-**Format der Zutaten:**
+## Entwicklung
 
-```
-500 g Hackfleisch
-1,5 l Gemüsebrühe
-2 Eier
+```bash
+pip install -r requirements-dev.txt
+python -m pytest                # unter Linux ohne Bildschirm: xvfb-run -a python -m pytest
 ```
 
-- Mengen mit Komma oder Punkt möglich (`1,5` oder `1.5`)
-- Einheit ist optional
-- Ungültige Formate werden als `1x [Name]` interpretiert
+Bei jedem Pull Request laufen die Tests automatisch auf Windows, macOS und Linux.
 
----
-
-## App selbst kompilieren
-
-| Plattform | Skript | Output |
-|-----------|--------|--------|
-| Windows | `build_exe.bat` | `dist\Menueplaner.exe` |
-| macOS | `./build_mac.sh` | `dist/Menueplaner` |
-| Linux | `./build_linux.sh` | `dist/Menueplaner` |
-
-PyInstaller wird durch die Skripte automatisch installiert.
-Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befinden.
-
-> **Hinweis:** Die macOS- und Linux-Skripte wurden nicht offiziell getestet.
-
----
-
-## Projektstruktur
-
-| Datei | Beschreibung |
-|-------|-------------|
-| `menu_planer.py` | Hauptprogramm (GUI und Logik) |
-| `Rezepte.xlsx` | Rezeptdatenbank — muss im gleichen Ordner wie die App liegen |
-| `session.json` | Wird automatisch erstellt; speichert Wochenplan und Einkaufslisten-Status |
-| `requirements.txt` | Python-Abhängigkeiten für `pip install -r requirements.txt` |
-| `build_exe.bat` | Windows Build-Skript → `dist\Menueplaner.exe` |
-| `build_mac.sh` | macOS Build-Skript → `dist/Menueplaner` |
-| `build_linux.sh` | Linux Build-Skript → `dist/Menueplaner` |
-| `Menueplaner.spec` | PyInstaller-Konfigurationsdatei — nicht manuell bearbeiten |
-
----
+**Release erstellen:** `__version__` in `menu_planer.py`, das Versions-Badge oben und den Versionsverlauf unten anpassen und nach `main` mergen.
+Dann auf GitHub unter Releases → „Draft a new release" einen Tag `v<Version>` (z. B. `v1.2.0`) auf `main` anlegen und veröffentlichen.
+Der Workflow baut daraufhin alle drei Apps, prüft sie mit dem Selbsttest und hängt sie an das Release an (ca. 15 Minuten, siehe Actions → Release-Builds).
+Über „Run workflow" ohne Tag kann man vorher einen Probe-Build machen.
 
 ## Versionsverlauf
 
 | Version | Neuerungen |
 |---------|-----------|
-| **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren; Bug-Fixes (Fehlerbehandlung bei Datei-I/O, Session-Validierung, Mausrad-Scrolling) |
+| **v1.1.1** | Bessere Linux/macOS-Unterstützung, Kompatibilität mit pandas 3, automatische Tests und Release-Builds, zahlreiche Bug-Fixes |
+| **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren |
 | **v1.0.0** | Erstveröffentlichung |
-
----
 
 ## Lizenz
 
-Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+[MIT](LICENSE)
