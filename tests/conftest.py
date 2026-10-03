@@ -192,6 +192,8 @@ def starte_app(app_ordner, dialoge, monkeypatch):
     """Fabrik: starte_app() startet die App (auch mehrmals, z.B. für Neustarts)."""
     monkeypatch.setattr(tk.Tk, "mainloop", lambda self, n=0: None)
     monkeypatch.delenv("MENUEPLANER_SELBSTTEST", raising=False)
+    for var in ("MENUEPLANER_ZOOM", "GDK_SCALE", "GDK_DPI_SCALE", "QT_SCALE_FACTOR"):
+        monkeypatch.delenv(var, raising=False)
     gestartet = []
 
     def starte(ordner=None):
