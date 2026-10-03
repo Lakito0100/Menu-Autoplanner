@@ -187,7 +187,19 @@ _lade_rezepte_aus_df(df)
 tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 mahlzeiten = ["Frühstück", "Mittagessen", "Abendessen"]
 
-root = tk.Tk()
+def _erzeuge_tk(versuche=3):
+    """Unter Windows kann Tk beim Start vereinzelt eigene .tcl-Dateien nicht
+    lesen (z.B. während ein Virenscanner sie prüft) – dann kurz neu versuchen."""
+    import time
+    for versuch in range(versuche):
+        try:
+            return tk.Tk()
+        except tk.TclError:
+            if versuch == versuche - 1:
+                raise
+            time.sleep(0.5)
+
+root = _erzeuge_tk()
 root.title(f"Menüplaner v{__version__}")
 root.minsize(600, 400)
 

@@ -122,3 +122,29 @@ def test_unterfenster_ist_modal(app):
     assert win.grab_current() == win
     app.schliesse(win)
     assert not win.winfo_exists()
+
+
+def test_tk_start_wird_bei_voruebergehendem_fehler_wiederholt(app, monkeypatch):
+    import time
+    versuche = []
+
+    def tk_mit_fehler():
+        versuche.append(1)
+        if len(versuche) < 3:
+            raise tk.TclError("Can't find a usable tk.tcl")
+        return "tk"
+
+    monkeypatch.setattr(tk, "Tk", tk_mit_fehler)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert app._erzeuge_tk() == "tk"
+    assert len(versuche) == 3
+
+    def tk_immer_kaputt():
+        versuche.append(1)
+        raise tk.TclError("kaputt")
+
+    versuche.clear()
+    monkeypatch.setattr(tk, "Tk", tk_immer_kaputt)
+    with pytest.raises(tk.TclError):
+        app._erzeuge_tk()
+    assert len(versuche) == 3
