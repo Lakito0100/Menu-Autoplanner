@@ -46,27 +46,40 @@ REZEPTE_FILE = os.path.join(BASE_DIR, "Rezepte.xlsx")
 
 _einkaufsliste_state = {"vorhanden": [], "zusaetzlich": [], "geloescht": []}
 
+# Selbsttest für die automatischen Tests (CI): MENUEPLANER_SELBSTTEST=1 startet
+# die App, probiert die wichtigsten Funktionen aus und beendet sich mit
+# Exit-Code 0 (ok) bzw. 1 (Fehler). Protokoll: selbsttest.log im Programmordner.
+SELBSTTEST = bool(os.environ.get("MENUEPLANER_SELBSTTEST"))
+
+def _selbsttest_log(text):
+    try:
+        with open(os.path.join(BASE_DIR, "selbsttest.log"), "a", encoding="utf-8") as f:
+            f.write(text + "\n")
+    except OSError:
+        pass
+    if sys.stderr is not None:  # bei --windowed-Builds unter Windows None
+        print(text, file=sys.stderr)
+
+def _fataler_fehler(titel, text):
+    if SELBSTTEST:
+        _selbsttest_log(f"FEHLER: {titel}: {text}")
+        sys.exit(2)
+    _tmp = tk.Tk()
+    _tmp.withdraw()
+    messagebox.showerror(titel, text)
+    _tmp.destroy()
+    sys.exit(1)
+
 try:
     df = pd.read_excel(REZEPTE_FILE)
 except FileNotFoundError:
-    _tmp = tk.Tk()
-    _tmp.withdraw()
-    messagebox.showerror(
+    _fataler_fehler(
         "Rezeptdatei fehlt",
         f"'{os.path.basename(REZEPTE_FILE)}' wurde nicht gefunden.\n"
         "Bitte 'Rezepte.xlsx' in denselben Ordner wie das Programm legen."
     )
-    _tmp.destroy()
-    sys.exit(1)
 except Exception as e:
-    _tmp = tk.Tk()
-    _tmp.withdraw()
-    messagebox.showerror(
-        "Fehler beim Laden",
-        f"Rezeptdatei konnte nicht geladen werden:\n{e}"
-    )
-    _tmp.destroy()
-    sys.exit(1)
+    _fataler_fehler("Fehler beim Laden", f"Rezeptdatei konnte nicht geladen werden:\n{e}")
 
 # Bekannte Einheiten (Vergleich ohne Gross-/Kleinschreibung). Alles andere nach
 # der Menge gehört zum Zutatnamen, z.B. "1 rote Zwiebel" oder "1 Pak Choi".
@@ -1037,4 +1050,57 @@ root.update_idletasks()
 _fenstergroesse(root, scroll_frame.winfo_reqwidth() + scroll_y.winfo_reqwidth() + 4,
                 scroll_frame.winfo_reqheight() + 4)
 
+# ── Selbsttest ────────────────────────────────────────────────────────────────
+
+_selbsttest_fehler = []
+
+def _selbsttest():
+    import traceback
+    global asksaveasfilename
+    try:
+        # Dialoge dürfen im Selbsttest nicht blockieren
+        messagebox.showinfo = lambda *a, **k: None
+        messagebox.showwarning = lambda *a, **k: _selbsttest_fehler.append(("Warnung",) + a)
+        messagebox.showerror = lambda *a, **k: _selbsttest_fehler.append(("Fehler",) + a)
+        export_datei = os.path.join(tempfile.mkdtemp(), "selbsttest.xlsx")
+        asksaveasfilename = lambda **k: export_datei
+
+        if not rezept_infos:
+            raise RuntimeError("keine Rezepte geladen")
+        key = f"{tage[0]}_{mahlzeiten[0]}"
+        label = next((l for l, info in rezept_infos.items() if info["zutaten"]), None)
+        if label is None:
+            raise RuntimeError("kein Rezept mit Zutaten gefunden")
+        auswahl_rezept[key].set(label)
+        rezept_gewaehlt(key)
+        if not generate_list():
+            raise RuntimeError("Einkaufsliste ist leer")
+        for fenster_oeffnen in (zeige_einkaufsliste, oeffne_rezeptverwaltung):
+            fenster_oeffnen()
+            root.update()
+            for w in root.winfo_children():
+                if isinstance(w, tk.Toplevel):
+                    w.destroy()
+        export_plan_und_einkaufsliste()
+        blaetter = pd.read_excel(export_datei, sheet_name=None)
+        if set(blaetter) != {"Wochenplan", "Einkaufsliste"}:
+            raise RuntimeError(f"Export unvollständig: {list(blaetter)}")
+        copy_wochenplan()
+    except Exception:
+        _selbsttest_fehler.append(traceback.format_exc())
+    for f in _selbsttest_fehler:
+        _selbsttest_log(f"FEHLER: {f}")
+    _selbsttest_log("SELBSTTEST " + ("FEHLGESCHLAGEN" if _selbsttest_fehler else "OK")
+                    + f" ({len(rezept_infos)} Rezepte, Python {sys.version.split()[0]},"
+                    f" Tk {tk.TkVersion}, pandas {pd.__version__})")
+    root.destroy()
+
+if SELBSTTEST:
+    root.report_callback_exception = lambda typ, wert, tb: _selbsttest_fehler.append(f"{typ.__name__}: {wert}")
+    root.after(60000, lambda: (_selbsttest_log("FEHLER: Zeitüberschreitung"), os._exit(3)))
+    root.after(300, _selbsttest)
+
 root.mainloop()
+
+if SELBSTTEST:
+    sys.exit(1 if _selbsttest_fehler else 0)

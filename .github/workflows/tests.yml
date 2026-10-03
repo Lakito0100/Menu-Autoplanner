@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.13"]
+        include:
+          # Mindestversion laut README (installiert automatisch pandas 2.x)
+          - os: ubuntu-22.04
+            python: "3.8"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Linux – virtuelles Display und Tk installieren
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libtk8.6
+
+      - name: Abhängigkeiten installieren
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Tkinter prüfen
+        run: python -c "import tkinter; print('Tk', tkinter.Tcl().eval('info patchlevel'))"
+
+      - name: Tests (Linux, unter Xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python -m pytest -v
+
+      - name: Tests (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: python -m pytest -v

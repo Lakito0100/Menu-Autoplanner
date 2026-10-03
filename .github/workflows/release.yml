@@ -1,0 +1,199 @@
+name: Release-Builds
+
+# Baut die Apps für Windows, macOS und Linux, prüft jede kompilierte App mit
+# dem eingebauten Selbsttest und hängt sie an das GitHub-Release an.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Release-Tag (z. B. v1.1.1), an das die Builds angehängt werden.
+          Leer lassen = nur bauen und als Workflow-Artefakt bereitstellen.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  version:
+    name: Versionsnummer prüfen
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.pruefen.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Tag mit __version__ vergleichen
+        id: pruefen
+        run: |
+          VERSION=$(sed -n 's/^__version__ = "\([^"]*\)".*/\1/p' menu_planer.py)
+          if [ -z "$VERSION" ]; then
+            echo "::error file=menu_planer.py::__version__ nicht gefunden"
+            exit 1
+          fi
+          if [ -n "$TAG" ] && [ "${TAG#v}" != "$VERSION" ]; then
+            echo "::error file=menu_planer.py::Release-Tag '$TAG' passt nicht zu __version__ = \"$VERSION\" (erwartet: v$VERSION)"
+            exit 1
+          fi
+          echo "Version: $VERSION (Tag: ${TAG:-keiner})"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            asset: Menueplaner_win.zip
+          - name: macOS
+            os: macos-latest          # Apple Silicon (arm64)
+            asset: Menueplaner_mac.zip
+          - name: Linux
+            os: ubuntu-22.04          # ältere glibc -> läuft auch auf älteren Distributionen
+            asset: Menueplaner_linux.tar.gz
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.12"
+
+      - name: Linux – Tk und virtuelles Display installieren
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libtk8.6
+
+      # ── Bauen mit den Build-Skripten aus dem Repository ──────────────────
+      - name: Bauen (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        env:
+          MENUEPLANER_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: call build_exe.bat
+
+      - name: Bauen (macOS)
+        if: runner.os == 'macOS'
+        run: ./build_mac.sh
+
+      - name: Bauen (Linux)
+        if: runner.os == 'Linux'
+        run: ./build_linux.sh
+
+      # ── Selbsttest der kompilierten App ──────────────────────────────────
+      - name: Selbsttest (Linux/macOS)
+        if: runner.os != 'Windows'
+        timeout-minutes: 10
+        run: |
+          rm -f dist/selbsttest.log
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            MENUEPLANER_SELBSTTEST=1 xvfb-run -a dist/Menueplaner
+          else
+            MENUEPLANER_SELBSTTEST=1 dist/Menueplaner.app/Contents/MacOS/Menueplaner
+          fi && RC=0 || RC=$?
+          echo "──── selbsttest.log ────"
+          cat dist/selbsttest.log 2>/dev/null || echo "(kein selbsttest.log vorhanden)"
+          echo "────────────────────────"
+          if [ "$RC" -ne 0 ] || ! grep -q "SELBSTTEST OK" dist/selbsttest.log 2>/dev/null; then
+            echo "::error::Selbsttest der kompilierten App fehlgeschlagen (Exit-Code $RC)"
+            exit 1
+          fi
+
+      - name: Selbsttest (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          Remove-Item dist\selbsttest.log -ErrorAction SilentlyContinue
+          $env:MENUEPLANER_SELBSTTEST = "1"
+          $p = Start-Process -FilePath dist\Menueplaner.exe -PassThru
+          $null = $p.Handle  # nötig, damit ExitCode später verfügbar ist
+          if ($p.WaitForExit(300000)) { $rc = $p.ExitCode } else { $p.Kill(); $rc = "Zeitüberschreitung" }
+          Write-Host "──── selbsttest.log ────"
+          $ok = $false
+          if (Test-Path dist\selbsttest.log) {
+            Get-Content dist\selbsttest.log -Encoding utf8
+            $ok = [bool](Select-String -Path dist\selbsttest.log -Pattern "SELBSTTEST OK" -Quiet)
+          } else {
+            Write-Host "(kein selbsttest.log vorhanden)"
+          }
+          Write-Host "────────────────────────"
+          if ($rc -ne 0 -or -not $ok) {
+            Write-Host "::error::Selbsttest der kompilierten App fehlgeschlagen (Exit-Code $rc)"
+            exit 1
+          }
+
+      # ── Verpacken (Ordner "Menueplaner" mit App + Rezepte.xlsx) ──────────
+      - name: Verpacken (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force paket\Menueplaner | Out-Null
+          Copy-Item dist\Menueplaner.exe, Rezepte.xlsx paket\Menueplaner\
+          Compress-Archive -Path paket\Menueplaner -DestinationPath ${{ matrix.asset }}
+
+      - name: Verpacken (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p paket/Menueplaner
+          # ditto erhält Symlinks, Rechte und Signatur des .app-Bundles
+          ditto dist/Menueplaner.app paket/Menueplaner/Menueplaner.app
+          cp Rezepte.xlsx paket/Menueplaner/
+          ditto -c -k --sequesterRsrc --keepParent paket/Menueplaner "${{ matrix.asset }}"
+
+      - name: Verpacken (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p paket/Menueplaner
+          cp dist/Menueplaner Rezepte.xlsx paket/Menueplaner/
+          chmod +x paket/Menueplaner/Menueplaner
+          tar -C paket -czf "${{ matrix.asset }}" Menueplaner
+          tar -tvzf "${{ matrix.asset }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: An Release anhängen
+    needs: [version, build]
+    if: github.event_name == 'release' || inputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Dateien hochladen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l assets
+          gh release upload "$TAG" assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          {
+            echo "### Release $TAG (Version ${{ needs.version.outputs.version }})"
+            echo
+            for f in assets/*; do echo "- $(basename "$f")"; done
+          } >> "$GITHUB_STEP_SUMMARY"

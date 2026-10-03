@@ -1,6 +1,7 @@
 # Menüplaner
 
 [![Version](https://img.shields.io/badge/Version-1.1.1-brightgreen.svg)]()
+[![Tests](https://github.com/Lakito0100/Menu-Autoplanner/actions/workflows/tests.yml/badge.svg)](https://github.com/Lakito0100/Menu-Autoplanner/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -65,15 +66,21 @@ virtuelle Umgebung (`.venv`) mit allen Paketen an:
 ./start_menu_planer.sh
 ```
 
-### Option B – Windows EXE (kein Python erforderlich)
+### Option B – Fertige App herunterladen (kein Python erforderlich)
 
-Die fertige Windows-Anwendung steht auf der
-[Releases-Seite](https://github.com/Lakito0100/Menu-Autoplanner/releases)
-zum Download bereit.
+Auf der [Releases-Seite](https://github.com/Lakito0100/Menu-Autoplanner/releases)
+liegen beim jeweiligen Release unter **Assets** fertige Apps. Jedes Archiv enthält einen
+Ordner `Menueplaner` mit der App **und** der `Rezepte.xlsx`:
 
-1. `Menueplaner_win.exe` herunterladen
-2. Die Datei `Rezepte.xlsx` aus dem Repository in denselben Ordner legen
-3. Doppelklick auf `Menueplaner_win.exe`
+| System | Datei | Starten |
+|--------|-------|---------|
+| Windows 10/11 | `Menueplaner_win.zip` | Entpacken, Doppelklick auf `Menueplaner.exe` |
+| macOS (nur Apple Silicon, M1 oder neuer) | `Menueplaner_mac.zip` | Entpacken, `Menueplaner.app` per Rechtsklick → „Öffnen" starten |
+| Linux (x86-64) | `Menueplaner_linux.tar.gz` | `tar -xzf Menueplaner_linux.tar.gz` und dann `./Menueplaner/Menueplaner` |
+
+`Rezepte.xlsx` muss immer im selben Ordner wie die App bleiben (unter macOS neben
+`Menueplaner.app`). Hinweise zu Sicherheitswarnungen stehen im Abschnitt
+[Release erstellen](#release-erstellen).
 
 ### Option C – Selbst kompilieren (macOS / Linux)
 
@@ -156,6 +163,71 @@ Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befi
 
 ---
 
+## Tests
+
+Die Tests (pytest) starten die App jeweils in einem temporären Ordner und prüfen
+Wochenplan, Einkaufsliste, Export, Rezeptverwaltung, Sitzungsspeicherung und
+plattformabhängiges Verhalten (Fenstergrösse, Mausrad).
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest              # Windows / macOS
+xvfb-run -a python -m pytest  # Linux ohne Bildschirm (z. B. Server)
+```
+
+Bei jedem Pull Request und jedem Push auf `main`/`development` laufen die Tests
+automatisch über GitHub Actions auf **Windows, macOS und Linux** (Workflow
+`.github/workflows/tests.yml`). Das Ergebnis steht im Pull Request unter „Checks".
+
+Zusätzlich hat die App einen Selbsttest, der auch mit der kompilierten App
+funktioniert: Mit `MENUEPLANER_SELBSTTEST=1` startet sie, probiert die
+wichtigsten Funktionen aus und beendet sich mit Exit-Code 0 (ok). Das Ergebnis
+steht in `selbsttest.log` im Programmordner.
+
+---
+
+## Release erstellen
+
+Beim Veröffentlichen eines Releases auf GitHub baut der Workflow
+`.github/workflows/release.yml` automatisch die Apps für Windows, macOS und Linux,
+startet jede kompilierte App mit dem Selbsttest und hängt sie an das Release an.
+
+1. **Version erhöhen:** `__version__` in `menu_planer.py` setzen (z. B. `"1.2.0"`),
+   außerdem Versions-Badge und Versionsverlauf im README anpassen (prüft auch ein Test).
+2. Änderungen über einen Pull Request nach `main` bringen und warten, bis die Tests grün sind.
+3. Auf GitHub **Releases → „Draft a new release"** öffnen.
+4. Bei **„Choose a tag"** den neuen Tag eingeben, genau `v` + Version (z. B. `v1.2.0`)
+   → „Create new tag on publish". Als Ziel (Target) `main` wählen.
+5. Titel und Beschreibung eintragen, dann **„Publish release"** klicken.
+6. Unter **Actions → Release-Builds** läuft jetzt der Build (ca. 10–15 Minuten).
+   Danach stehen beim Release unter **Assets** die Dateien `Menueplaner_win.zip`,
+   `Menueplaner_mac.zip` und `Menueplaner_linux.tar.gz`.
+
+Passt der Tag nicht zu `__version__`, oder schlägt der Selbsttest einer App fehl,
+bricht der Workflow ab und es wird nichts hochgeladen. Das `selbsttest.log` steht
+dann im Log des Schritts „Selbsttest". Nach einer Korrektur lässt sich der Build
+über **Actions → Release-Builds → „Run workflow"** mit dem Tag erneut starten
+(vorhandene Dateien werden ersetzt). Ohne Tag wird nur gebaut. Die Apps liegen dann
+14 Tage lang als Artefakte in der Zusammenfassung des Workflow-Laufs, praktisch zum
+Ausprobieren vor einem Release.
+
+**Hinweise zu den fertigen Apps:**
+
+- **Nicht signiert:** Die Apps haben keine kostenpflichtige Code-Signatur.
+  - *Windows (SmartScreen):* „Der Computer wurde durch Windows geschützt" →
+    „Weitere Informationen" → „Trotzdem ausführen".
+  - *macOS (Gatekeeper):* Beim ersten Start Rechtsklick auf `Menueplaner.app` →
+    „Öffnen". Ab macOS 15: nach dem ersten Versuch unter **Systemeinstellungen →
+    Datenschutz & Sicherheit** auf „Dennoch öffnen" klicken. Alternativ im
+    Terminal: `xattr -dr com.apple.quarantine Menueplaner.app`
+- **macOS nur Apple Silicon:** Der Mac-Build entsteht auf einem Apple-Silicon-Runner
+  (arm64) und läuft nur auf Macs mit M1-Chip oder neuer. Auf Intel-Macs bitte
+  `./start_menu_planer.sh` (Option A) verwenden oder mit `./build_mac.sh` selbst bauen.
+- **Linux:** Gebaut auf Ubuntu 22.04 – läuft damit auch auf älteren Distributionen
+  (ungefähr ab Ubuntu 22.04, Debian 12, Fedora 36).
+
+---
+
 ## Projektstruktur
 
 | Datei | Beschreibung |
@@ -169,6 +241,10 @@ Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befi
 | `build_exe.bat` | Windows Build-Skript → `dist\Menueplaner.exe` |
 | `build_mac.sh` | macOS Build-Skript → `dist/Menueplaner` |
 | `build_linux.sh` | Linux Build-Skript → `dist/Menueplaner` |
+| `tests/`, `pytest.ini` | Automatische Tests (pytest) |
+| `requirements-dev.txt` | Abhängigkeiten für die Tests |
+| `.github/workflows/tests.yml` | Tests auf Windows, macOS und Linux bei jedem Pull Request |
+| `.github/workflows/release.yml` | Baut und testet die Apps bei jedem Release und hängt sie an |
 | `Menueplaner.spec` | PyInstaller-Konfigurationsdatei — nicht manuell bearbeiten |
 
 ---
@@ -177,7 +253,7 @@ Die Datei `Rezepte.xlsx` muss sich im selben Ordner wie die kompilierte App befi
 
 | Version | Neuerungen |
 |---------|-----------|
-| **v1.1.1** | Linux/macOS-Unterstützung verbessert (Fenstergrösse, Mausrad, Build- und Startskripte); Kompatibilität mit pandas 3; zahlreiche Bug-Fixes (Rezept bearbeiten/umbenennen, Session-Speicherung beim Schliessen, gelöschte Einkaufslisten-Einträge, Zutaten-Erkennung) |
+| **v1.1.1** | Linux/macOS-Unterstützung verbessert (Fenstergrösse, Mausrad, Build- und Startskripte); Kompatibilität mit pandas 3; automatische Tests und Release-Builds für alle drei Systeme; zahlreiche Bug-Fixes (Rezept bearbeiten/umbenennen, Session-Speicherung beim Schliessen, gelöschte Einkaufslisten-Einträge, Zutaten-Erkennung) |
 | **v1.1.0** | Einkaufsliste: Eintrag löschen, Liste zurücksetzen; Wochenplan als Text kopieren; Bug-Fixes (Fehlerbehandlung bei Datei-I/O, Session-Validierung, Mausrad-Scrolling) |
 | **v1.0.0** | Erstveröffentlichung |
 
