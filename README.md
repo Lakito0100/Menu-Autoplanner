@@ -59,20 +59,6 @@ Spalten: `Rezeptname`, `Kategorie`, `Punkte` (für das ganze Rezept), `Portionen
 Zutaten im Format `Menge Einheit Name`, z. B. `500 g Hackfleisch`, `1,5 l Brühe`, `1/2 TL Zimt`, `2 Eier`.
 Einheit und Menge sind optional. Zutaten ohne Menge (z. B. `Salz, Pfeffer`) stehen ohne Mengenangabe auf der Einkaufsliste.
 
-## Entwicklung
-
-```bash
-pip install -r requirements-dev.txt
-python -m pytest                # unter Linux ohne Bildschirm: xvfb-run -a python -m pytest
-```
-
-Bei jedem Pull Request laufen die Tests automatisch auf Windows, macOS und Linux.
-
-**Release erstellen:** `__version__` in `menu_planer.py`, das Versions-Badge oben und den Versionsverlauf unten anpassen und nach `main` mergen.
-Dann auf GitHub unter Releases → „Draft a new release" einen Tag `v<Version>` (z. B. `v1.2.0`) auf `main` anlegen und veröffentlichen.
-Der Workflow baut daraufhin alle drei Apps, prüft sie mit dem Selbsttest und hängt sie an das Release an (ca. 15 Minuten, siehe Actions → Release-Builds).
-Über „Run workflow" ohne Tag kann man vorher einen Probe-Build machen.
-
 ## Versionsverlauf
 
 | Version | Neuerungen |
